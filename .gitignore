@@ -1,0 +1,12 @@
+node_modules/
+downloads/
+bucket-utils/
+json/*.json
+!json/example.json
+.env
+.eslintrc.js
+fs.js
+fs.mjs
+fsc.js
+test-data/
+validation-errors.json
