@@ -425,6 +425,25 @@
                 "accessLevel",
                 "bureauCode",
                 "programCode"
+            ],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "accessLevel": {
+                                "enum": [
+                                    "restricted public",
+                                    "non-public"
+                                ]
+                            }
+                        }
+                    },
+                    "then": {
+                        "required": [
+                            "rights"
+                        ]
+                    }
+                }
             ]
         },
         "publisher": {
