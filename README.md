@@ -14,7 +14,7 @@ npm install
 Run the script by providing the path to the JSON file you want to validate:
 
 ```bash
-node validate-dcat.js <input-file-path>
+node validate-dcat.js {input-file-path}
 ```
 
 Example:
@@ -31,7 +31,7 @@ node validate-dcat.js ./data/dcat-file.json
 ```json
 {
   "isValid": false,
-  "amount": <number_of_errors>,
+  "amount": "<number_of_errors>",
   "errors": [
     {
       "dataPath": "<path_to_invalid_data>",
