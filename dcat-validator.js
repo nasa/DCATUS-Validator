@@ -18,17 +18,23 @@ const validateDcatFile = async (inputFile) => {
     const ajv = new Ajv({ allErrors: true });
 
     addFormats(ajv);
-    ajv.addFormat('doi-uri', {
-      type: 'string',
+    ajv.addFormat("doi-uri", {
+      type: "string",
       validate: (str) => {
         try {
+          const schemeRegex = /^(https?):\/\//i;
           const decoded = decodeURIComponent(str);
+
+          if (!schemeRegex.test(str)) {
+            return false;
+          }
+
           encodeURI(decoded);
           return true;
-        } catch (e) {
+        } catch (_e) {
           return false;
         }
-      }
+      },
     });
     
     const validate = ajv.compile(DCAT_US_SCHEMA)
