@@ -28,13 +28,13 @@ export const validateFile = async (
       validate: (str: string): boolean => {
         try {
           const schemeRegex = /^(https?):\/\//i;
-          const decoded = decodeURIComponent(str);
-
           if (!schemeRegex.test(str)) {
             return false;
           }
 
+          const decoded = decodeURIComponent(str);
           encodeURI(decoded);
+
           return true;
         } catch (_e) {
           return false;

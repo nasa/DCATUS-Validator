@@ -45,7 +45,11 @@ Deno.test("validateFile with invalid DOI URI", async () => {
     dataset: [
       {
         ...validData.dataset[0],
-        references: ["badURI", "https://data.nasa.gov/developer"],
+        references: [
+          "badURI",
+          "https://data.nasa.gov/developer",
+          "https://example.com/\x19test",
+        ],
       },
     ],
   };
