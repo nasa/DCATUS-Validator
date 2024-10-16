@@ -10,3 +10,5 @@ fs.mjs
 fsc.js
 test-data/
 validation-errors.json
+test-json/
+coverage/

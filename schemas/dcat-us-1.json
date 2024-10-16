@@ -368,7 +368,7 @@
                                 "anyOf": [
                                     {
                                         "type": "string",
-                                        "format": "uri-reference"
+                                        "format": "uri"
                                     },
                                     {
                                         "type": "string",
