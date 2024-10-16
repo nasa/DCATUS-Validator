@@ -1,7 +1,7 @@
 
 # DCAT-US JSON Schema Validation Script
 
-This script validates a JSON file against the [DCAT-US Schema](https://resources.data.gov/resources/dcat-us/) (v1) and outputs any validation errors in a `validation-errors.json` file.
+This script validates a JSON file against the [DCAT-US Schema](https://resources.data.gov/resources/dcat-us/) (v1.1) and outputs any validation errors in a `validation-errors.json` file.
 
 ## Usage
 
@@ -43,5 +43,5 @@ node validate-dcat.js ./data/dcat-file.json
 ``` 
 
 ### Notes
-- Updated [GSA DCAT-US Schema](https://github.com/GSA/ckanext-datajson/tree/main/ckanext/datajson/pod_schema/federal-v1.1) to draft-07 from draft-04 to keep inline with GSA's schema.
+- Updated [GSA DCAT-US Schema](https://github.com/GSA/ckanext-datajson/tree/main/ckanext/datajson/pod_schema/federal-v1.1) from draft-04 to draft-07 to keep inline with GSA's schema.
 - Did not keep validation for "REDACTED" values.
