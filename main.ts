@@ -1,11 +1,14 @@
 import { validateFile } from "./schema-validator.ts";
 
-const inputFile = Deno.args[0];
+let inputFile: string | null = Deno.args[0];
 const outputFile = `validation-errors.json`;
 
 if (!inputFile) {
-  console.error("Please provide an input file path.");
-  Deno.exit(1);
+  inputFile = prompt("Please provide an input file path: ");
+  if (!inputFile) {
+    console.error("No input file path provided. Exiting...");
+    Deno.exit(1);
+  }
 }
 
 try {
