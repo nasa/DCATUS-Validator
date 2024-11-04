@@ -1,7 +1,7 @@
 
 # JSON Schema Validation Script
 
-This script validates a file against a specified JSON schema and outputs any validation errors in a `validation-errors.json` file.
+This script validates a file against a specified JSON schema(Default DCAT-US 1.1) and outputs any validation errors in a `validation-errors.json` file.
 
 ## Usage
 
@@ -41,6 +41,6 @@ deno -RW main.ts .\test-json\data.json
 ```
 
 ### Notes
-
-- This script is compatible with your schema and provides detailed error messages for easy debugging.
-- Be sure to update any schema-specific configurations in `schema-validator.ts` as needed.
+- Updated [GSA DCAT-US Schema](https://github.com/GSA/ckanext-datajson/tree/main/ckanext/datajson/pod_schema/federal-v1.1) from draft-04 to draft-07 to keep inline with GSA's schema.
+- Did not keep validation for "REDACTED" values.
+- This script can be used to validate any JSON file against any JSON schema.
