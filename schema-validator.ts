@@ -4,13 +4,21 @@ import schemaFile from "./schemas/dcat-us-1.json" with { type: "json" };
 
 interface ValidationResponse {
   valid: boolean;
-  amount: number;
-  errors: ValidationError[] | [];
+  datasetsWithErrors: number;
+  errors: DatasetErrors[] | [];
 }
 interface ValidationError {
   dataPath: string;
-  message?: string;
+  message?: string[];
   datasetIdentifier?: string;
+}
+interface DatasetErrors {
+  datasetIdentifier: string;
+  errors: {
+    dataPath: string;
+    message: string;
+  }[];
+  amount: number;
 }
 
 export const validateFile = async (
@@ -46,32 +54,64 @@ export const validateFile = async (
     const valid = validate(data);
 
     if (!valid) {
-      const errors = validate.errors.map((err: ErrorObject) => {
-        const newErr: ValidationError = {
-          dataPath: err.instancePath,
-          message: err.message?.replaceAll('"', ""),
-        };
+      // Group errors by datasetIdentifier and then by dataPath
+      const errorGroups: Record<string, ValidationError[]> = {};
+
+      validate.errors.forEach((err: ErrorObject) => {
+        const dataPath = err.instancePath;
+        const message = err.message?.replaceAll('"', "");
+
         let datasetIdentifier = null;
-        if (err.instancePath.includes("/dataset")) {
-          datasetIdentifier =
-            data.dataset[err.instancePath.split("/")[2]].identifier;
+        if (dataPath.includes("/dataset")) {
+          datasetIdentifier = data.dataset[dataPath.split("/")[2]].identifier;
         }
+
         if (datasetIdentifier) {
-          newErr.datasetIdentifier = datasetIdentifier;
+          if (!errorGroups[datasetIdentifier]) {
+            errorGroups[datasetIdentifier] = [];
+          }
+
+          // Check if a similar error already exists for deduplication
+          const existingError = errorGroups[datasetIdentifier].find(
+            (e) => e.dataPath === dataPath
+          );
+
+          if (existingError) {
+            // Add the message if it's not already in the list
+            if (message && existingError.message && !existingError.message.includes(message)) {
+              existingError.message.push(message);
+            }
+          } else {
+            // Add a new error entry
+            errorGroups[datasetIdentifier].push({
+              dataPath,
+              message: message ? [message] : [],
+              datasetIdentifier,
+            });
+          }
         }
-        return newErr;
       });
+
+      // Convert grouped errors into an array of arrays for human-readable output
+      const errors: DatasetErrors[] = Object.entries(errorGroups).map(([identifier, errors]) => ({
+        datasetIdentifier: identifier,
+        amount: errors.length,
+        errors: errors.map((err) => ({
+          dataPath: err.dataPath,
+          message: err.message ? err.message.join("; ")
+        })),
+      }));
 
       return {
         valid: false,
-        amount: errors.length,
-        errors: errors,
+        datasetsWithErrors: errors.length,
+        errors,
       };
     }
 
     return {
       valid: true,
-      amount: 0,
+      datasetsWithErrors: 0,
       errors: [],
     };
   } catch (error) {
