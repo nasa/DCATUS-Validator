@@ -98,7 +98,7 @@ export const validateFile = async (
         amount: errors.length,
         errors: errors.map((err) => ({
           dataPath: err.dataPath,
-          message: err.message ? err.message.join("; ")
+          message: err.message ? err.message.join("; ") : "",
         })),
       }));
 
