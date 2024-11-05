@@ -11,15 +11,32 @@ interface ValidationError {
   dataPath: string;
   message?: string[];
   datasetIdentifier?: string;
+  description?: string;
 }
 interface DatasetErrors {
   datasetIdentifier: string;
-  errors: {
-    dataPath: string;
-    message: string;
-  }[];
+  errors: ValidationError[];
   amount: number;
 }
+
+const getFieldDescription = (dataPath: string, schema: any): string => {
+  const pathSegments = dataPath.split("/").filter((seg) => seg);
+  let currentSchema = schema;
+
+  for (const segment of pathSegments) {
+    if (currentSchema && currentSchema.properties && currentSchema.properties[segment]) {
+      currentSchema = currentSchema.properties[segment];
+    } else if (currentSchema && currentSchema.items && currentSchema.items.$ref) {
+      // Handle references to definitions
+      const refPath = currentSchema.items.$ref.replace("#/", "").split("/");
+      currentSchema = refPath.reduce((acc:any, refSegment:string) => acc && acc[refSegment], schema);
+    } else {
+      return '';
+    }
+  }
+
+  return currentSchema ? currentSchema.description || null : null;
+};
 
 export const validateFile = async (
   inputFile: string,
@@ -60,6 +77,7 @@ export const validateFile = async (
       validate.errors.forEach((err: ErrorObject) => {
         const dataPath = err.instancePath;
         const message = err.message?.replaceAll('"', "");
+        const description = getFieldDescription(dataPath, schemaFile);
 
         let datasetIdentifier = null;
         if (dataPath.includes("/dataset")) {
@@ -85,21 +103,18 @@ export const validateFile = async (
             // Add a new error entry
             errorGroups[datasetIdentifier].push({
               dataPath,
-              message: message ? [message] : [],
-              datasetIdentifier,
+              description,
+              message: message ? [message] : []
             });
           }
         }
       });
 
-      // Convert grouped errors into an array of arrays for human-readable output
+      // Convert grouped errors into an array of DatasetErrors
       const errors: DatasetErrors[] = Object.entries(errorGroups).map(([identifier, errors]) => ({
         datasetIdentifier: identifier,
         amount: errors.length,
-        errors: errors.map((err) => ({
-          dataPath: err.dataPath,
-          message: err.message ? err.message.join("; ") : "",
-        })),
+        errors
       }));
 
       return {
