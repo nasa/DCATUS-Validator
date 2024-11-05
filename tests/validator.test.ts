@@ -14,7 +14,7 @@ Deno.test("validateFile with valid input", async () => {
   try {
     const result = await validateFile(tempFilePath);
     assertEquals(result.valid, true);
-    assertEquals(result.amount, 0);
+    assertEquals(result.datasetsWithErrors, 0);
     assertEquals(result.errors, []);
   } finally {
     await Deno.remove(tempFilePath);
@@ -26,7 +26,7 @@ Deno.test("validateFile with invalid input", async () => {
   try {
     const result = await validateFile(tempFilePath);
     assertEquals(result.valid, false);
-    assertNotEquals(result.amount, 0);
+    assertNotEquals(result.datasetsWithErrors, 0);
     assertNotEquals(result.errors.length, 0);
 
     // Check for specific errors
@@ -58,7 +58,7 @@ Deno.test("validateFile with invalid DOI URI", async () => {
     const result = await validateFile(tempFilePath);
 
     assertEquals(result.valid, false);
-    assertNotEquals(result.amount, 0);
+    assertNotEquals(result.datasetsWithErrors, 0);
     assertNotEquals(result.errors.length, 0);
   } finally {
     await Deno.remove(tempFilePath);
