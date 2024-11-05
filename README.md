@@ -29,12 +29,18 @@ deno -RW main.ts .\test-json\data.json
 ```json
 {
   "isValid": false,
-  "amount": "<number_of_errors>",
+  "datasetsWithErrors": "<number_of_datasets_with_errors>",
   "errors": [
     {
-      "dataPath": "<path_to_invalid_data>",
-      "message": "<error_message>",
-      "context": "<additional_context_if_applicable>"
+      "datasetIdentifier": "<dataset_identifier>",
+      "amount": "<number_of_errors_in_dataset>",
+      "errors": [
+        {
+          "dataPath": "<path_to_field_with_error>",
+          "description": "<description_of_field_with_error>",
+          "message": "<error_messages>"
+        }
+      ]
     }
   ]
 }
