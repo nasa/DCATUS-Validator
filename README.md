@@ -53,8 +53,8 @@ node dcat-validator.js ./test-json/dcat1-sample.json
 }
 ``` 
 **Error Notes**:
-- If a dataset has multiple errors, each error will be listed separately in the `errors` array.
-- If a dataset is breaking multiple rules for a single field(ex: bureauCode), each rule will be listed separately in the `errors` array.
+- If a dataset has multiple errors, each error will be listed separately in the errors array.
+- If a dataset is breaking multiple rules for a single field(ex: bureauCode), each rule will be listed separately in the errors array.
   - Fixing the dataset to adhere to one rule will clear all the errors for that field.
 
 ### Notes
