@@ -31,13 +31,15 @@
         "distribution": [
           {
             "@type": "dcat:Distribution",
-            "title": "Example Distribution",
-            "description": "This is an example distribution",
             "accessURL": "https://example.com/dataset.csv",
+            "conformsTo": "http://www.agency.gov/vegetables-data-standard/",
+            "downloadURL": "https://example.com/dataset-download.csv",
+            "describedBy": "http://www.agency.gov/vegetables/schema.json",
+            "describedByType": "application/schema+json",
+            "description": "This is an example distribution",
             "format": "CSV",
-            "byteSize": "123456",
             "mediaType": "text/csv",
-            "downloadURL": "https://example.com/dataset-download.csv"
+            "title": "Example Distribution"
           }
         ]
       }
