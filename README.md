@@ -47,7 +47,7 @@ node dcat-validator.js ./test-json/dcat1-sample.json
       "dataPath": "<path_to_the_error>", // This is the path in the input JSON file where the error occurred.
       "keyword": "<error_keyword>",
       "message": "<error_message>",
-      "schemaPath": "<path_to_schema_where_error_occurred>", // This is the path in the schema where that flagged the error.
+      "schemaPath": "<path_to_schema_where_error_occurred>", // This is the path to the section of the schema that flagged the error.
     }
   ]
 }
