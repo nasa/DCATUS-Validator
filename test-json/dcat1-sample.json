@@ -1,0 +1,45 @@
+{
+    "@context": "https://project-open-data.cio.gov/v1.1/schema/catalog.jsonld",
+    "@id": "http://example.com/catalog",
+    "@type": "dcat:Catalog",
+    "conformsTo": "https://project-open-data.cio.gov/v1.1/schema",
+    "describedBy": "https://project-open-data.cio.gov/v1.1/schema/catalog.json",
+    "dataset": [
+      {
+        "@type": "dcat:Dataset",
+        "identifier": "dataset-001",
+        "title": "Example Dataset",
+        "description": "This is an example dataset",
+        "keyword": ["example", "test"],
+        "modified": "2023-04-22",
+        "bureauCode": ["026:00"],
+        "programCode": ["026:001"],
+        "publisher": {
+          "@type": "org:Organization",
+          "name": "Example Organization"
+        },
+        "contactPoint": {
+          "@type": "vcard:Contact",
+          "fn": "John Doe",
+          "hasEmail": "mailto:john.doe@example.com"
+        },
+        "accessLevel": "public",
+        "references": [
+          "https://journals.ametsoc.org/doi/10.1175/",
+          "https://data.nasa.gov/developer"
+        ],
+        "distribution": [
+          {
+            "@type": "dcat:Distribution",
+            "title": "Example Distribution",
+            "description": "This is an example distribution",
+            "accessURL": "https://example.com/dataset.csv",
+            "format": "CSV",
+            "byteSize": "123456",
+            "mediaType": "text/csv",
+            "downloadURL": "https://example.com/dataset-download.csv"
+          }
+        ]
+      }
+    ]
+}

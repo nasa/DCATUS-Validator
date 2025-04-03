@@ -10,3 +10,4 @@ fs.mjs
 fsc.js
 test-data/
 validation-errors.json
+validation-results.json
