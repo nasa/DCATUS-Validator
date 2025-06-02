@@ -342,21 +342,8 @@
       "description": "Related documents such as technical information about a dataset, developer documentation, etc.",
       "anyOf": [
         {
-          "type": "array",
-          "items": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uri"
-              },
-              {
-                "type": "string",
-                "pattern": "^(\\[\\[REDACTED).*?(\\]\\])$"
-              }
-            ]
-          },
-          "minItems": 1,
-          "uniqueItems": true
+          "type": "string",
+          "format": "uri"
         },
         {
           "type": "null"
