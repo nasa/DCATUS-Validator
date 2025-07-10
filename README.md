@@ -1,61 +1,65 @@
+# DCATUS-Validator
 
-# DCAT-US JSON Schema Validation Script
+A Python tool for validating DCAT-US 1.1 (Data Catalog Vocabulary - United States) JSON files.
 
-This script validates a JSON file against the [DCAT-US Schema](https://resources.data.gov/resources/dcat-us/) (v1.1) and outputs any validation errors in a `validation-results.json` file.
+## Overview
+
+DCATUS-Validator is a command-line utility developed by NASA to ensure that data catalog files conform to the Project Open Data metadata format required for federal open data initiatives. The tool validates JSON files containing dataset metadata against the official GSA DCAT schema and provides detailed error reporting for non-compliant datasets.
+
+
+## Requirements
+
+- Python 3.12 or higher
+- Dependencies managed via `uv` (see `pyproject.toml`)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/nasa/DCATUS-Validator.git
+cd DCATUS-Validator
+```
+
+2. Install dependencies using `uv`:
+```bash
+uv sync
+```
 
 ## Usage
 
-Install dependencies:
+### Basic Usage
+
+Validate a DCAT-US JSON file:
 
 ```bash
-npm install
+python validate.py path/to/your/data.json
 ```
 
-Run the script by providing the path to the JSON file you want to validate:
+### Example
 
 ```bash
-node dcat-validator.js {input-file-path}
+python validate.py test-json/dcat1-sample.json
 ```
 
-Example:
+### Output
 
-```bash
-node dcat-validator.js ./test-json/dcat1-sample.json
-```
+The validator provides console output showing:
+- Number of datasets being validated
+- Validation completion status
 
-## Output
+If validation errors are found:
+- An `invalid_datasets.json` file is created with detailed error information
+- Each invalid dataset includes:
+  - Dataset title
+  - List of specific validation errors with field paths
 
-- **If the file is valid**: A success message will be logged, and a `validation-results.json` file will be generated containing the following structure.
-```json
-{
-  "isValid": true,
-  "amount": 0,
-  "errors": []
-}
-```
+## Test Data
 
+The `test-json/` directory contains sample dataset for testing:
 
-- **If the file is invalid**: The script will log the errors, and a `validation-results.json` file will be generated containing the following structure:
-```json
-{
-  "isValid": false,
-  "amount": "<number_of_errors>",
-  "errors": [
-    {
-      "datasetTitle": "<name_of_the_dataset>",
-      "datasetId": "<dataset_id>",
-      "dataPath": "<path_to_the_error>", // This is the path in the input JSON file where the error occurred.
-      "keyword": "<error_keyword>",
-      "message": "<error_message>",
-      "schemaPath": "<path_to_schema_where_error_occurred>", // This is the path to the section of the schema that flagged the error.
-    }
-  ]
-}
-``` 
-**Error Notes**:
-- If a dataset has multiple errors, each error will be listed separately in the errors array.
-- If a dataset is breaking multiple rules for a single field(ex: bureauCode), each rule will be listed separately in the errors array.
-  - Fixing the dataset to adhere to one rule will clear all the errors for that field.
+- `dcat1-sample.json` - Basic valid dataset example
 
-### Notes
-- Updated [GSA DCAT-US Schema](https://github.com/GSA/ckanext-datajson/tree/main/ckanext/datajson/pod_schema/federal-v1.1) from draft-04 to draft-07 to keep inline with GSA's schema.
+## Related Resources
+
+- [DCAT-US Schema Documentation](https://project-open-data.cio.gov/v1.1/schema/)
+
