@@ -7,7 +7,7 @@ from pathlib import Path
 from jsonschema import Draft7Validator, FormatChecker, SchemaError, ValidationError
 
 
-def validate_dcat(datasets: list[dict]) -> list:
+def validate_dcat(datasets: list[dict]) -> list[dict]:
     """
     Validate datasets against the GSA DCAT schema.
 
@@ -27,7 +27,7 @@ def validate_dcat(datasets: list[dict]) -> list:
 
     for dataset in datasets:
         error_messages = []
-        # This loop is the only part that changes
+
         for error in validator.iter_errors(dataset):
             # Create a user-friendly path to the error field
             field_path = " -> ".join(map(str, error.path))
@@ -39,7 +39,6 @@ def validate_dcat(datasets: list[dict]) -> list:
                 # For errors at the very top level of the dataset
                 error_messages.append(error.message)
 
-        # If any errors were found, add them to our list
         if error_messages:
             invalid_datasets.append(
                 {
@@ -54,16 +53,13 @@ def validate_dcat(datasets: list[dict]) -> list:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    # Set up the argument parser
     parser = argparse.ArgumentParser(
         description="Validate a DCAT-US JSON file against the GSA schema."
     )
     parser.add_argument("filepath", help="The path to the DCAT JSON file to validate.")
 
-    # Parse the arguments from the command line
     args = parser.parse_args()
 
-    # Read the JSON file from the provided path
     try:
         with open(args.filepath, "r", encoding="utf-8") as f:
             datasets_to_validate = json.load(f)
@@ -75,7 +71,6 @@ if __name__ == "__main__":
         logging.error(f"Error: Could not decode JSON from the file '{args.filepath}'.")
         sys.exit(1)
 
-    # Call your function with the data
     logging.info(f"Validating {len(datasets_to_validate)} datasets...")
     result = validate_dcat(datasets_to_validate)
     logging.info("Validation complete.")
