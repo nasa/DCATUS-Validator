@@ -178,4 +178,4 @@ cython_debug/
 
 # Project specific ignores
 test-json/*
-validation-results.json
+invalid_datasets.json
