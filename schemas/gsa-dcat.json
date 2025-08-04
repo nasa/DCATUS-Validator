@@ -342,8 +342,13 @@
       "description": "Related documents such as technical information about a dataset, developer documentation, etc.",
       "anyOf": [
         {
-          "type": "string",
-          "format": "uri"
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         },
         {
           "type": "null"
