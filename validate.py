@@ -78,7 +78,6 @@ def validate_dcat(datasets: list[dict]) -> list[dict]:
             base_msg = err.message
 
             if err.validator in ("oneOf", "anyOf", "allOf") and err.context:
-                print(err.context)
                 sub = _pick_best_suberror(err.context)
                 # sub = best_match(err.context)
                 if sub is not None:
