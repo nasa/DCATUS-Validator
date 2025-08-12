@@ -7,7 +7,7 @@ from typing import Sequence
 
 import rfc3987
 from jsonschema import Draft7Validator, FormatChecker
-from jsonschema.exceptions import ValidationError, best_match
+from jsonschema.exceptions import ValidationError
 
 
 def _path_str(path_iterable: Sequence[str | int]) -> str:
@@ -78,7 +78,9 @@ def validate_dcat(datasets: list[dict]) -> list[dict]:
             base_msg = err.message
 
             if err.validator in ("oneOf", "anyOf", "allOf") and err.context:
+                print(err.context)
                 sub = _pick_best_suberror(err.context)
+                # sub = best_match(err.context)
                 if sub is not None:
                     sub_path = _path_str(sub.absolute_path) or path
                     sub_msg = sub.message
