@@ -3,8 +3,47 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Sequence
 
-from jsonschema import Draft7Validator, FormatChecker, SchemaError, ValidationError
+import rfc3987
+from jsonschema import Draft7Validator, FormatChecker
+from jsonschema.exceptions import ValidationError, best_match
+
+
+def _path_str(path_iterable: Sequence[str | int]) -> str:
+    """
+    Convert a jsonschema absolute_path into a compact, JSONPath-like string.
+
+    :param path_iterable: A list of path components.
+    """
+    parts = []
+    for p in path_iterable:
+        if isinstance(p, int):
+            if parts:
+                parts[-1] = f"{parts[-1]}[{p}]"
+            else:
+                parts.append(f"[{p}]")
+        else:
+            parts.append(str(p))
+    return ".".join(parts) if parts else ""
+
+
+def _pick_best_suberror(context: list[ValidationError]) -> ValidationError | None:
+    """
+    From a list of sub-errors (e.context), choose the most specific one.
+
+    :param context: A list of sub-errors.
+    """
+    if not context:
+        return None
+    best = None
+    best_depth = -1
+    for se in context:
+        depth = len(list(se.absolute_schema_path))
+        if depth > best_depth:
+            best = se
+            best_depth = depth
+    return best
 
 
 def validate_dcat(datasets: list[dict]) -> list[dict]:
@@ -17,33 +56,48 @@ def validate_dcat(datasets: list[dict]) -> list[dict]:
     """
     invalid_datasets = []
     schemas_folder = Path(__file__).resolve().parent / "schemas"
-    schema_path = schemas_folder / "gsa-dcat.json"
+    schema_path = schemas_folder / "gsa-dcat-v7.json"
     format_checker = FormatChecker()
 
     with open(schema_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
 
+    Draft7Validator.check_schema(schema)
     validator = Draft7Validator(schema, format_checker=format_checker)
 
     for dataset in datasets:
         error_messages = []
 
-        for error in validator.iter_errors(dataset):
-            # Create a user-friendly path to the error field
-            field_path = " -> ".join(map(str, error.path))
+        errors = sorted(
+            validator.iter_errors(dataset),
+            key=lambda e: (tuple(e.absolute_path), tuple(e.absolute_schema_path)),
+        )
 
-            # Format a more descriptive message
-            if field_path:
-                error_messages.append(f"{field_path}: {error.message}")
+        for err in errors:
+            path = _path_str(err.absolute_path)
+            base_msg = err.message
+
+            if err.validator in ("oneOf", "anyOf", "allOf") and err.context:
+                sub = _pick_best_suberror(err.context)
+                if sub is not None:
+                    sub_path = _path_str(sub.absolute_path) or path
+                    sub_msg = sub.message
+                    if sub_path and sub_path != path:
+                        error_messages.append(f"{sub_path}: {sub_msg}")
+                    else:
+                        error_messages.append(f"{path}: {sub_msg}" if path else sub_msg)
+                    continue
+
+            if path:
+                error_messages.append(f"{path}: {base_msg}")
             else:
-                # For errors at the very top level of the dataset
-                error_messages.append(error.message)
+                error_messages.append(base_msg)
 
         if error_messages:
             invalid_datasets.append(
                 {
                     "title": dataset.get("title", "Unknown Title"),
-                    "errors": sorted(error_messages),
+                    "errors": sorted(set(error_messages)),
                 }
             )
 
@@ -74,9 +128,12 @@ if __name__ == "__main__":
     logging.info(f"Validating {len(datasets_to_validate)} datasets...")
     result = validate_dcat(datasets_to_validate)
     logging.info("Validation complete.")
+
     if not result:
         logging.info("All datasets are valid.")
     else:
         logging.info("Invalid datasets found:")
+        logging.info(f"Found {len(result)} invalid datasets.")
+
         with open("invalid_datasets.json", "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2)
