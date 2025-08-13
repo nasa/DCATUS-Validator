@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+import rfc3987
 from jsonschema import Draft7Validator, FormatChecker
 from jsonschema.exceptions import ValidationError
 
