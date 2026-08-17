@@ -1,140 +1,181 @@
-import argparse
+"""Validate DCAT-US v1.1 and v3.0 catalogs and datasets.
+
+Home for the schema-registry loading, validation, and error-formatting
+helpers shared by the conversion script.
+"""
+
 import json
 import logging
 import sys
-from pathlib import Path
-from typing import Sequence
+from typing import TypedDict
 
-import rfc3987
-from jsonschema import Draft7Validator, FormatChecker
-from jsonschema.exceptions import ValidationError
+import click
+from jsonschema import Draft202012Validator
+from referencing import Registry
+
+from utils.errors import format_error
+from utils.schemas import SCHEMA_VERSIONS, load_schema_registry
 
 
-def _path_str(path_iterable: Sequence[str | int]) -> str:
+class InvalidDataset(TypedDict):
+    """One dataset that failed validation, with its formatted errors."""
+
+    title: str
+    errors: list[str]
+
+
+class CatalogValidationException(Exception):
+    """Raised when a catalog fails schema validation and the caller treats it as fatal."""
+
+
+def _collect_errors(validator: Draft202012Validator, document: dict) -> list[str]:
     """
-    Convert a jsonschema absolute_path into a compact, JSONPath-like string.
+    Validate a document and return its errors as deduplicated, sorted strings.
 
-    :param path_iterable: A list of path components.
+    :param validator: A validator from :func:`_build_validator`.
+    :param document: The document to validate.
+    :return: Formatted error strings; empty when the document is valid.
     """
-    parts = []
-    for p in path_iterable:
-        if isinstance(p, int):
-            if parts:
-                parts[-1] = f"{parts[-1]}[{p}]"
-            else:
-                parts.append(f"[{p}]")
-        else:
-            parts.append(str(p))
-    return ".".join(parts) if parts else ""
+    return sorted({format_error(error) for error in validator.iter_errors(document)})
 
 
-def _pick_best_suberror(context: list[ValidationError]) -> ValidationError | None:
+def _build_validator(schema_id: str, registry: Registry) -> Draft202012Validator:
     """
-    From a list of sub-errors (e.context), choose the most specific one.
+    Create a Draft 2020-12 validator that resolves ``schema_id`` through a registry.
 
-    :param context: A list of sub-errors.
+    :param schema_id: The ``$id`` of the schema to validate against.
+    :param registry: A Registry produced by :func:`load_schema_registry`.
+    :return: A configured Draft202012Validator.
     """
-    if not context:
-        return None
-    best = None
-    best_depth = -1
-    for se in context:
-        depth = len(list(se.absolute_schema_path))
-        if depth > best_depth:
-            best = se
-            best_depth = depth
-    return best
+    return Draft202012Validator(
+        {"$ref": schema_id},
+        registry=registry,
+        format_checker=Draft202012Validator.FORMAT_CHECKER,
+    )
 
 
-def validate_dcat(datasets: list[dict]) -> list[dict]:
+def validate_catalog(schema_id: str, registry: Registry, catalog: dict) -> list[str]:
     """
-    Validate datasets against the GSA DCAT schema.
+    Validate a catalog and return formatted error strings instead of raising.
 
-    :param datasets: A list of datasets to validate.
-    :raises SchemaError: If the schema is invalid.
-    :return: A list containing invalid datasets.
+    Callers decide whether a failure is fatal; raise
+    :class:`CatalogValidationException` yourself if it is.
+
+    :param schema_id: The catalog schema ``$id`` to validate against.
+    :param registry: A Registry produced by :func:`load_schema_registry`.
+    :param catalog: The catalog document to validate.
+    :return: Deduplicated, sorted error strings; empty when the catalog is valid.
     """
-    invalid_datasets = []
-    schemas_folder = Path(__file__).resolve().parent / "schemas"
-    schema_path = schemas_folder / "gsa-dcat-v7.json"
-    format_checker = FormatChecker()
+    return _collect_errors(_build_validator(schema_id, registry), catalog)
 
-    with open(schema_path, "r", encoding="utf-8") as f:
-        schema = json.load(f)
 
-    Draft7Validator.check_schema(schema)
-    validator = Draft7Validator(schema, format_checker=format_checker)
+def validate_datasets(
+    schema_id: str, registry: Registry, datasets: list[dict]
+) -> list[InvalidDataset]:
+    """
+    Validate each dataset individually and report only the invalid ones.
+
+    :param schema_id: The dataset schema ``$id`` to validate against.
+    :param registry: A Registry produced by :func:`load_schema_registry`.
+    :param datasets: The datasets to validate.
+    :return: An :class:`InvalidDataset` per invalid dataset; empty when all are valid.
+    """
+    validator = _build_validator(schema_id, registry)
+    invalid_datasets: list[InvalidDataset] = []
 
     for dataset in datasets:
-        error_messages = []
-
-        errors = sorted(
-            validator.iter_errors(dataset),
-            key=lambda e: (tuple(e.absolute_path), tuple(e.absolute_schema_path)),
-        )
-
-        for err in errors:
-            path = _path_str(err.absolute_path)
-            base_msg = err.message
-
-            if err.validator in ("oneOf", "anyOf", "allOf") and err.context:
-                sub = _pick_best_suberror(err.context)
-                # sub = best_match(err.context)
-                if sub is not None:
-                    sub_path = _path_str(sub.absolute_path) or path
-                    sub_msg = sub.message
-                    if sub_path and sub_path != path:
-                        error_messages.append(f"{sub_path}: {sub_msg}")
-                    else:
-                        error_messages.append(f"{path}: {sub_msg}" if path else sub_msg)
-                    continue
-
-            if path:
-                error_messages.append(f"{path}: {base_msg}")
-            else:
-                error_messages.append(base_msg)
-
-        if error_messages:
+        errors = _collect_errors(validator, dataset)
+        if errors:
             invalid_datasets.append(
                 {
                     "title": dataset.get("title", "Unknown Title"),
-                    "errors": sorted(set(error_messages)),
+                    "errors": errors,
                 }
             )
 
     return invalid_datasets
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+# --------------------------------------------------------------------------- #
+# CLI
+# --------------------------------------------------------------------------- #
 
-    parser = argparse.ArgumentParser(
-        description="Validate a DCAT-US JSON file against the GSA schema."
-    )
-    parser.add_argument("filepath", help="The path to the DCAT JSON file to validate.")
 
-    args = parser.parse_args()
+def _load_catalog(filepath: str) -> dict:
+    """
+    Read a JSON catalog from disk, exiting with a message on failure.
 
+    :param filepath: Path to the catalog file.
+    :return: The parsed catalog document.
+    """
     try:
-        with open(args.filepath, "r", encoding="utf-8") as f:
-            datasets_to_validate = json.load(f)
-            datasets_to_validate = datasets_to_validate.get("dataset", [])
+        with open(filepath, "r", encoding="utf-8") as f:
+            return json.load(f)
     except FileNotFoundError:
-        logging.error(f"Error: The file '{args.filepath}' was not found.")
+        logging.error("Error: The file '%s' was not found.", filepath)
         sys.exit(1)
     except json.JSONDecodeError:
-        logging.error(f"Error: Could not decode JSON from the file '{args.filepath}'.")
+        logging.error("Error: Could not decode JSON from the file '%s'.", filepath)
         sys.exit(1)
 
-    logging.info(f"Validating {len(datasets_to_validate)} datasets...")
-    result = validate_dcat(datasets_to_validate)
+
+def _write_report(invalid_datasets: list[InvalidDataset], output: str) -> None:
+    """
+    Write the invalid-dataset report as JSON.
+
+    :param invalid_datasets: The datasets that failed validation.
+    :param output: Path to write the report to.
+    """
+    with open(output, "w", encoding="utf-8") as f:
+        json.dump(invalid_datasets, f, indent=2, ensure_ascii=False)
+
+    logging.info(
+        "Wrote report for %d invalid datasets to %s", len(invalid_datasets), output
+    )
+
+
+@click.command()
+@click.argument("filepath", type=click.Path(dir_okay=False))
+@click.option(
+    "-s",
+    "--schema-version",
+    type=click.Choice(list(SCHEMA_VERSIONS)),
+    default="v3.0",
+    show_default=True,
+    help="DCAT-US schema version to validate against.",
+)
+@click.option(
+    "-o",
+    "--output",
+    default="invalid_datasets.json",
+    show_default=True,
+    help="Path to write the invalid-dataset report.",
+)
+def main(filepath: str, schema_version: str, output: str) -> None:
+    """Validate the datasets in a DCAT-US JSON catalog file."""
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    version = SCHEMA_VERSIONS[schema_version]
+    catalog = _load_catalog(filepath)
+    datasets = catalog.get("dataset", []) if isinstance(catalog, dict) else []
+
+    registry = load_schema_registry(version.definitions_dir)
+
+    logging.info(
+        "Validating %d datasets against DCAT-US %s...", len(datasets), schema_version
+    )
+    invalid_datasets = validate_datasets(version.dataset_schema_id, registry, datasets)
     logging.info("Validation complete.")
 
-    if not result:
-        logging.info("All datasets are valid.")
-    else:
-        logging.info("Invalid datasets found:")
-        logging.info(f"Found {len(result)} invalid datasets.")
+    valid_count = len(datasets) - len(invalid_datasets)
+    logging.info("%d valid, %d invalid.", valid_count, len(invalid_datasets))
 
-        with open("invalid_datasets.json", "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2)
+    if not invalid_datasets:
+        logging.info("All datasets are valid.")
+        return
+
+    _write_report(invalid_datasets, output)
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

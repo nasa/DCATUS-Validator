@@ -177,5 +177,5 @@ cython_debug/
 .pypirc
 
 # Project specific ignores
-test-json/*
 invalid_datasets.json
+converted_dcat_data/*
