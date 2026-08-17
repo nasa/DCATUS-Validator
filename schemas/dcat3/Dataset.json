@@ -937,7 +937,7 @@
       "description": "Time periods covered by the dataset",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Periodoftime.json"
+        "$ref": "./PeriodOfTime.json"
       },
       "_oldDocs": {
         "uri": "dcterms:temporal",

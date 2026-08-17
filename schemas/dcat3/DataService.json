@@ -485,7 +485,7 @@
       "description": "Time periods covered by the data service",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Periodoftime.json"
+        "$ref": "./PeriodOfTime.json"
       },
       "_oldDocs": {
         "uri": "dcterms:temporal",
