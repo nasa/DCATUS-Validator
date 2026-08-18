@@ -1,0 +1,64 @@
+{
+  "@id": "http://example.com/catalog",
+  "@type": "dcat:Catalog",
+  "conformsTo": {
+    "@type": "Standard",
+    "title": "DCAT-US 3.0",
+    "identifier": "https://resources.data.gov/dcat-us/3.0.0"
+  },
+  "dataset": [
+    {
+      "@type": "dcat:Dataset",
+      "identifier": "dataset-001",
+      "title": "Example Dataset",
+      "description": "This is an example dataset",
+      "keyword": [
+        "example",
+        "test"
+      ],
+      "modified": "2023-04-22",
+      "bureauCode": [
+        "026:00"
+      ],
+      "programCode": [
+        "026:001"
+      ],
+      "publisher": {
+        "@type": "org:Organization",
+        "name": "Example Organization"
+      },
+      "contactPoint": {
+        "@type": "vcard:Contact",
+        "fn": "John Doe",
+        "hasEmail": "mailto:john.doe@example.com"
+      },
+      "accessLevel": "public",
+      "references": [
+        "https://journals.ametsoc.org/doi/10.1175/",
+        "https://data.nasa.gov/developer"
+      ],
+      "distribution": [
+        {
+          "@type": "dcat:Distribution",
+          "accessURL": "https://example.com/dataset.csv",
+          "conformsTo": [
+            {
+              "@type": "Standard",
+              "identifier": "http://www.agency.gov/vegetables-data-standard/"
+            }
+          ],
+          "downloadURL": "https://example.com/dataset-download.csv",
+          "describedBy": {
+            "accessURL": "http://www.agency.gov/vegetables/schema.json",
+            "mediaType": "application/schema+json"
+          },
+          "description": "This is an example distribution",
+          "format": "CSV",
+          "mediaType": "text/csv",
+          "title": "Example Distribution"
+        }
+      ],
+      "accessRights": "public"
+    }
+  ]
+}

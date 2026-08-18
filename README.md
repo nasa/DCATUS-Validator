@@ -33,7 +33,31 @@ cd DCATUS-Validator
 uv sync
 ```
 
-## Validating a catalog
+## Installing as a package
+
+Instead of cloning the repo, you can add DCATUS-Validator directly as a dependency of your own project from GitHub using `uv`:
+
+```bash
+uv add git+https://github.com/nasa/DCATUS-Validator.git
+```
+
+Once installed, the package is importable as `dcatus_validator`, and you can call the validate and convert functions directly in your own Python code instead of using the CLI scripts:
+
+```python
+from dcatus_validator.validate import validate_catalog, validate_datasets
+from dcatus_validator.convert import convert_dcat_catalog
+
+# Validate an entire catalog and get a list of error strings
+errors = validate_catalog(catalog, schema_version="v3.0")
+
+# Validate each dataset individually and get back only the invalid ones
+invalid_datasets = validate_datasets(catalog["dataset"], schema_version="v3.0")
+
+# Convert a DCAT-US v1.1 catalog dict into a DCAT-US v3.0 catalog dict
+new_catalog = convert_dcat_catalog(old_catalog)
+```
+
+## Validating a catalog via CLI
 
 Run `validate.py` against a DCAT-US catalog JSON file (a JSON object with a top-level `dataset` array). Each dataset in the file is checked individually against the JSON schemas in `schemas/`.
 
@@ -68,7 +92,7 @@ The script prints the number of datasets checked and how many passed or failed.
 - If every dataset is valid, it logs `All datasets are valid.` and exits successfully.
 - If any dataset is invalid, it writes a JSON report (default `invalid_datasets.json`) listing each invalid dataset's title and its validation errors, and exits with a non-zero status.
 
-## Converting a catalog (v1.1 to v3.0)
+## Converting a catalog (v1.1 to v3.0) via CLI
 
 Run `convert.py` to convert a DCAT-US v1.1 catalog into DCAT-US v3.0 format. The script validates the input, converts the catalog and its datasets, then validates the result.
 
