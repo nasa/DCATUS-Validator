@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import click
-import utils.transforms as transforms
-from utils.schemas import SCHEMA_VERSIONS, load_schema_registry
-from validate import (
+
+from .utils import transforms
+from .utils.schemas import SCHEMA_VERSIONS, load_schema_registry
+from .validate import (
     CatalogValidationException,
     InvalidDataset,
     validate_catalog,

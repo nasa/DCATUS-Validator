@@ -12,8 +12,9 @@ from typing import TypedDict
 import click
 from jsonschema import Draft202012Validator
 from referencing import Registry
-from utils.errors import format_error
-from utils.schemas import SCHEMA_VERSIONS, load_schema_registry
+
+from .utils.errors import format_error
+from .utils.schemas import SCHEMA_VERSIONS, load_schema_registry
 
 
 class InvalidDataset(TypedDict):
