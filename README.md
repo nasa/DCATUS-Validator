@@ -59,10 +59,10 @@ new_catalog = convert_dcat_catalog(old_catalog)
 
 ## Validating a catalog via CLI
 
-Run `validate.py` against a DCAT-US catalog JSON file (a JSON object with a top-level `dataset` array). Each dataset in the file is checked individually against the JSON schemas in `schemas/`.
+Run the `dcatus-validate` command against a DCAT-US catalog JSON file. Each dataset in the file is checked individually against the JSON schemas in `schemas/`.
 
 ```bash
-python validate.py path/to/your/catalog.json
+uv run dcatus-validate path/to/your/catalog.json
 ```
 
 ### Options
@@ -76,13 +76,13 @@ python validate.py path/to/your/catalog.json
 
 ```bash
 # Validate a v1.1 catalog
-python validate.py test_json/dcat1-sample.json -s v1.1
+uv run dcatus-validate test_json/dcat1-sample.json -s v1.1
 
 # Validate a v3.0 catalog (default schema version)
-python validate.py test_json/dcat3-sample.json
+uv run dcatus-validate test_json/dcat3-sample.json
 
 # Write the error report to a custom location
-python validate.py test_json/dcat1-sample.json -s v1.1 -o my_report.json
+uv run dcatus-validate test_json/dcat1-sample.json -s v1.1 -o my_report.json
 ```
 
 ### Output
@@ -94,10 +94,10 @@ The script prints the number of datasets checked and how many passed or failed.
 
 ## Converting a catalog (v1.1 to v3.0) via CLI
 
-Run `convert.py` to convert a DCAT-US v1.1 catalog into DCAT-US v3.0 format. The script validates the input, converts the catalog and its datasets, then validates the result.
+Run the `dcatus-convert` command to convert a DCAT-US v1.1 catalog into DCAT-US v3.0 format. The script validates the input, converts the catalog and its datasets, then validates the result.
 
 ```bash
-python convert.py path/to/your/catalog.json
+uv run dcatus-convert path/to/your/catalog.json
 ```
 
 ### Options
@@ -112,13 +112,13 @@ python convert.py path/to/your/catalog.json
 
 ```bash
 # Convert a v1.1 catalog and write the result to converted_dcat_data/catalog.json
-python convert.py test_json/dcat1-sample.json
+uv run dcatus-convert test_json/dcat1-sample.json
 
 # Preview the conversion without writing output
-python convert.py test_json/dcat1-sample.json --dry-run
+uv run dcatus-convert test_json/dcat1-sample.json --dry-run
 
 # Convert to a custom output directory and fail on invalid v3.0 output
-python convert.py test_json/dcat1-sample.json -o converted_dcat_data --strict
+uv run dcatus-convert test_json/dcat1-sample.json -o converted_dcat_data --strict
 ```
 
 ### Output

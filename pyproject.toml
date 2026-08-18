@@ -13,6 +13,10 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
 ]
 
+[project.scripts]
+dcatus-validate = "dcatus_validator.validate:main"
+dcatus-convert = "dcatus_validator.convert:main"
+
 [dependency-groups]
 dev = [
     "ruff>=0.11.9",
