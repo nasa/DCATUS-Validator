@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import click
-
 import utils.transforms as transforms
 from utils.schemas import SCHEMA_VERSIONS, load_schema_registry
 from validate import (
@@ -29,7 +28,7 @@ class CatalogConversionException(Exception):
     pass
 
 
-def load_dcat_catalog(filepath: Path) -> dict:
+def _load_dcat_catalog(filepath: Path) -> dict:
     """Read a DCAT-US v1.1 catalog from disk."""
     try:
         raw = filepath.read_bytes()
@@ -114,7 +113,7 @@ def convert_dcat_catalog(old_catalog: dict) -> dict:
     return new_catalog
 
 
-def export_converted_catalog(catalog: dict, output_dir: str) -> None:
+def _export_converted_catalog(catalog: dict, output_dir: str) -> None:
     """Write the converted DCAT-US v3.0 catalog to disk as JSON."""
     click.echo("Saving converted DCAT-US 3.0 to disk.")
 
@@ -128,7 +127,7 @@ def export_converted_catalog(catalog: dict, output_dir: str) -> None:
     click.echo(f"Wrote {output_file}")
 
 
-def export_invalid_report(invalid_datasets: list[InvalidDataset], path: Path) -> None:
+def _export_invalid_report(invalid_datasets: list[InvalidDataset], path: Path) -> None:
     """Write the invalid-dataset report produced by validate_datasets()."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
@@ -136,7 +135,7 @@ def export_invalid_report(invalid_datasets: list[InvalidDataset], path: Path) ->
     click.echo(f"Wrote report for {len(invalid_datasets)} invalid datasets to {path}")
 
 
-def count_errors(invalid_datasets: list[InvalidDataset]) -> int:
+def _count_errors(invalid_datasets: list[InvalidDataset]) -> int:
     return sum(len(entry["errors"]) for entry in invalid_datasets)
 
 
@@ -178,14 +177,12 @@ def main(filepath, output_dir, dry_run, strict):
 
     click.echo(f"Converting DCAT-US v1.1 to DCAT-US v3.0 for {filepath}")
     try:
-        catalog_to_convert = load_dcat_catalog(filepath)
+        catalog_to_convert = _load_dcat_catalog(filepath)
         datasets = catalog_to_convert.get("dataset", [])
         counts["datasets"] = len(datasets)
 
         # Catalog-level v1.1 validation (non-fatal)
-        v1_1_catalog_errors = validate_catalog(
-            V1_1.catalog_schema_id, v1_1_registry, catalog_to_convert
-        )
+        v1_1_catalog_errors = validate_catalog(catalog_to_convert, "v1.1")
         if v1_1_catalog_errors:
             click.echo(
                 f"Warning: input catalog failed v1.1 validation with "
@@ -197,12 +194,10 @@ def main(filepath, output_dir, dry_run, strict):
             click.echo("Input catalog is valid DCAT-US v1.1.")
 
         # Per-dataset v1.1 validation
-        invalid_v1_1 = validate_datasets(
-            V1_1.dataset_schema_id, v1_1_registry, datasets
-        )
+        invalid_v1_1 = validate_datasets(datasets, "v1.1")
         counts["invalid_v1_1"] = len(invalid_v1_1)
         counts["valid_v1_1"] = len(datasets) - len(invalid_v1_1)
-        counts["validation_errors_v1_1"] = count_errors(invalid_v1_1)
+        counts["validation_errors_v1_1"] = _count_errors(invalid_v1_1)
         click.echo(
             f"Per-dataset v1.1: {counts['valid_v1_1']} valid, "
             f"{counts['invalid_v1_1']} invalid."
@@ -211,9 +206,7 @@ def main(filepath, output_dir, dry_run, strict):
         converted_catalog = convert_dcat_catalog(catalog_to_convert)
 
         # Catalog-level v3.0 validation
-        v3_0_catalog_errors = validate_catalog(
-            V3_0.catalog_schema_id, v3_0_registry, converted_catalog
-        )
+        v3_0_catalog_errors = validate_catalog(converted_catalog, "v3.0")
         if v3_0_catalog_errors:
             message = (
                 f"v3.0 catalog validation failed with "
@@ -226,12 +219,10 @@ def main(filepath, output_dir, dry_run, strict):
 
         # Per-dataset v3.0 validation
         converted_datasets = converted_catalog.get("dataset", [])
-        invalid_v3_0 = validate_datasets(
-            V3_0.dataset_schema_id, v3_0_registry, converted_datasets
-        )
+        invalid_v3_0 = validate_datasets(converted_datasets, "v3.0")
         counts["invalid_v3_0"] = len(invalid_v3_0)
         counts["valid_v3_0"] = len(converted_datasets) - len(invalid_v3_0)
-        counts["validation_errors_v3_0"] = count_errors(invalid_v3_0)
+        counts["validation_errors_v3_0"] = _count_errors(invalid_v3_0)
         click.echo(
             f"Per-dataset v3.0: {counts['valid_v3_0']} valid, "
             f"{counts['invalid_v3_0']} invalid."
@@ -240,9 +231,9 @@ def main(filepath, output_dir, dry_run, strict):
         if dry_run:
             click.echo("Dry run complete.")
         else:
-            export_converted_catalog(converted_catalog, output_dir)
+            _export_converted_catalog(converted_catalog, output_dir)
             if invalid_v3_0:
-                export_invalid_report(
+                _export_invalid_report(
                     invalid_v3_0, Path(output_dir) / "invalid_datasets.json"
                 )
 

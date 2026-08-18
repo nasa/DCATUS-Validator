@@ -12,7 +12,6 @@ from typing import TypedDict
 import click
 from jsonschema import Draft202012Validator
 from referencing import Registry
-
 from utils.errors import format_error
 from utils.schemas import SCHEMA_VERSIONS, load_schema_registry
 
@@ -54,33 +53,37 @@ def _build_validator(schema_id: str, registry: Registry) -> Draft202012Validator
     )
 
 
-def validate_catalog(schema_id: str, registry: Registry, catalog: dict) -> list[str]:
+def validate_catalog(catalog: dict, schema_version: str = "v3.0") -> list[str]:
     """
     Validate a catalog and return formatted error strings instead of raising.
 
     Callers decide whether a failure is fatal; raise
     :class:`CatalogValidationException` yourself if it is.
 
-    :param schema_id: The catalog schema ``$id`` to validate against.
-    :param registry: A Registry produced by :func:`load_schema_registry`.
     :param catalog: The catalog document to validate.
+    :param schema_version: The DCAT-US schema version to validate against.
     :return: Deduplicated, sorted error strings; empty when the catalog is valid.
     """
-    return _collect_errors(_build_validator(schema_id, registry), catalog)
+    version = SCHEMA_VERSIONS[schema_version]
+    registry = load_schema_registry(version.definitions_dir)
+    schema_id = version.catalog_schema_id
+    validator = _build_validator(schema_id, registry)
+    return _collect_errors(validator, catalog)
 
 
 def validate_datasets(
-    schema_id: str, registry: Registry, datasets: list[dict]
+    datasets: list[dict], schema_version: str = "v3.0"
 ) -> list[InvalidDataset]:
     """
     Validate each dataset individually and report only the invalid ones.
 
-    :param schema_id: The dataset schema ``$id`` to validate against.
-    :param registry: A Registry produced by :func:`load_schema_registry`.
     :param datasets: The datasets to validate.
+    :param schema_version: The DCAT-US schema version to validate against.
     :return: An :class:`InvalidDataset` per invalid dataset; empty when all are valid.
     """
-    validator = _build_validator(schema_id, registry)
+    version = SCHEMA_VERSIONS[schema_version]
+    registry = load_schema_registry(version.definitions_dir)
+    validator = _build_validator(version.dataset_schema_id, registry)
     invalid_datasets: list[InvalidDataset] = []
 
     for dataset in datasets:
@@ -154,16 +157,24 @@ def _write_report(invalid_datasets: list[InvalidDataset], output: str) -> None:
 def main(filepath: str, schema_version: str, output: str) -> None:
     """Validate the datasets in a DCAT-US JSON catalog file."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    version = SCHEMA_VERSIONS[schema_version]
     catalog = _load_catalog(filepath)
     datasets = catalog.get("dataset", []) if isinstance(catalog, dict) else []
 
-    registry = load_schema_registry(version.definitions_dir)
+    invalid_catalog = validate_catalog(catalog, schema_version)
+
+    logging.info("Validating catalog against DCAT-US %s...", schema_version)
+    if invalid_catalog:
+        logging.error("Catalog validation failed with %d errors:", len(invalid_catalog))
+        for error in invalid_catalog:
+            logging.error("  - %s", error)
+        sys.exit(1)
+    else:
+        logging.info("Catalog is valid.")
 
     logging.info(
         "Validating %d datasets against DCAT-US %s...", len(datasets), schema_version
     )
-    invalid_datasets = validate_datasets(version.dataset_schema_id, registry, datasets)
+    invalid_datasets = validate_datasets(datasets, schema_version)
     logging.info("Validation complete.")
 
     valid_count = len(datasets) - len(invalid_datasets)
