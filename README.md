@@ -10,10 +10,11 @@ DCATUS-Validator is a command-line utility developed by NASA to help agencies en
 - **DCAT-US v1.1**
 - **DCAT-US v3.0**
 
-The tool has two scripts:
+The tool has three scripts:
 
 - `validate.py` - validates the datasets in a catalog against a DCAT-US schema version and reports errors
-- `convert.py` - converts a DCAT-US v1.1 catalog into a DCAT-US v3.0 catalog
+- `upgrade.py` - upgrades a DCAT-US v1.1 catalog into a DCAT-US v3.0 catalog
+- `downgrade.py` - downgrades a DCAT-US v3.0 catalog into a DCAT-US v1.1 catalog (lossy: v3.0-only fields are dropped)
 
 ## Requirements
 
@@ -45,7 +46,8 @@ Once installed, the package is importable as `dcatus_validator`, and you can cal
 
 ```python
 from dcatus_validator.validate import validate_catalog, validate_datasets
-from dcatus_validator.convert import convert_dcat_catalog
+from dcatus_validator.upgrade import upgrade_dcat_catalog
+from dcatus_validator.downgrade import downgrade_dcat_catalog
 
 # Validate an entire catalog and get a list of error strings
 errors = validate_catalog(catalog, schema_version="v3.0")
@@ -53,8 +55,11 @@ errors = validate_catalog(catalog, schema_version="v3.0")
 # Validate each dataset individually and get back only the invalid ones
 invalid_datasets = validate_datasets(catalog["dataset"], schema_version="v3.0")
 
-# Convert a DCAT-US v1.1 catalog dict into a DCAT-US v3.0 catalog dict
-new_catalog = convert_dcat_catalog(old_catalog)
+# Upgrade a DCAT-US v1.1 catalog dict into a DCAT-US v3.0 catalog dict
+new_catalog = upgrade_dcat_catalog(old_catalog)
+
+# Downgrade a DCAT-US v3.0 catalog dict into a DCAT-US v1.1 catalog dict
+old_catalog_again = downgrade_dcat_catalog(new_catalog)
 ```
 
 ## Validating a catalog via CLI
@@ -92,40 +97,76 @@ The script prints the number of datasets checked and how many passed or failed.
 - If every dataset is valid, it logs `All datasets are valid.` and exits successfully.
 - If any dataset is invalid, it writes a JSON report (default `invalid_datasets.json`) listing each invalid dataset's title and its validation errors, and exits with a non-zero status.
 
-## Converting a catalog (v1.1 to v3.0) via CLI
+## Upgrading a catalog (v1.1 to v3.0) via CLI
 
-Run the `dcatus-convert` command to convert a DCAT-US v1.1 catalog into DCAT-US v3.0 format. The script validates the input, converts the catalog and its datasets, then validates the result.
+Run the `dcatus-upgrade` command to upgrade a DCAT-US v1.1 catalog into DCAT-US v3.0 format. The script validates the input, upgrades the catalog and its datasets, then validates the result.
 
 ```bash
-uv run dcatus-convert path/to/your/catalog.json
+uv run dcatus-upgrade path/to/your/catalog.json
 ```
 
 ### Options
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-o`, `--output-dir` | Directory to write the converted catalog to | `converted_dcat_data` |
-| `--dry-run` | Convert and validate in memory without writing any files | off |
-| `--strict` | Exit with an error if the converted catalog fails v3.0 validation | off |
+| `-o`, `--output-dir` | Directory to write the upgraded catalog to | `converted_dcat_data` |
+| `--dry-run` | Upgrade and validate in memory without writing any files | off |
+| `--strict` | Exit with an error if the upgraded catalog fails v3.0 validation | off |
 
 ### Examples
 
 ```bash
-# Convert a v1.1 catalog and write the result to converted_dcat_data/catalog.json
-uv run dcatus-convert test_json/dcat1-sample.json
+# Upgrade a v1.1 catalog and write the result to converted_dcat_data/catalog.json
+uv run dcatus-upgrade test_json/dcat1-sample.json
 
-# Preview the conversion without writing output
-uv run dcatus-convert test_json/dcat1-sample.json --dry-run
+# Preview the upgrade without writing output
+uv run dcatus-upgrade test_json/dcat1-sample.json --dry-run
 
-# Convert to a custom output directory and fail on invalid v3.0 output
-uv run dcatus-convert test_json/dcat1-sample.json -o converted_dcat_data --strict
+# Upgrade to a custom output directory and fail on invalid v3.0 output
+uv run dcatus-upgrade test_json/dcat1-sample.json -o converted_dcat_data --strict
 ```
 
 ### Output
 
-- The converted catalog is written to `<output-dir>/catalog.json` (default `converted_dcat_data/catalog.json`), unless `--dry-run` is used.
-- If any converted datasets fail v3.0 validation, they are also written to `<output-dir>/invalid_datasets.json`.
-- Summary counts (datasets processed, valid/invalid before and after conversion) are printed to the console.
+- The upgraded catalog is written to `<output-dir>/catalog.json` (default `converted_dcat_data/catalog.json`), unless `--dry-run` is used.
+- If any upgraded datasets fail v3.0 validation, they are also written to `<output-dir>/invalid_datasets.json`.
+- Summary counts (datasets processed, valid/invalid before and after upgrade) are printed to the console.
+
+## Downgrading a catalog (v3.0 to v1.1) via CLI
+
+Run the `dcatus-downgrade` command to downgrade a DCAT-US v3.0 catalog into DCAT-US v1.1 format. This is a **lossy** conversion: v3.0 has fields and structure with no v1.1 equivalent, and these are dropped. The script validates the input, downgrades the catalog and its datasets, then validates the result.
+
+```bash
+uv run dcatus-downgrade path/to/your/catalog.json
+```
+
+### Options
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `-o`, `--output-dir` | Directory to write the downgraded catalog to | `downgraded_dcat_data` |
+| `--dry-run` | Downgrade and validate in memory without writing any files | off |
+| `--strict` | Exit with an error if the downgraded catalog fails v1.1 validation | off |
+
+### Examples
+
+```bash
+# Downgrade a v3.0 catalog and write the result to downgraded_dcat_data/catalog.json
+uv run dcatus-downgrade test_json/dcat3-sample.json
+
+# Preview the downgrade without writing output
+uv run dcatus-downgrade test_json/dcat3-sample.json --dry-run
+
+# Downgrade to a custom output directory and fail on invalid v1.1 output
+uv run dcatus-downgrade test_json/dcat3-sample.json -o downgraded_dcat_data --strict
+```
+
+### Output
+
+- The downgraded catalog is written to `<output-dir>/catalog.json` (default `downgraded_dcat_data/catalog.json`), unless `--dry-run` is used.
+- If any downgraded datasets fail v1.1 validation, they are also written to `<output-dir>/invalid_datasets.json`.
+- Summary counts (datasets processed, valid/invalid before and after downgrade) are printed to the console.
+- Fields that exist only in v3.0 (e.g. `otherIdentifier`, `status`, `provenance`, distribution `checksum`) are dropped during downgrade.
 
 ## Schemas
 

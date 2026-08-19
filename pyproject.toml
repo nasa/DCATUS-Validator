@@ -15,7 +15,8 @@ dependencies = [
 
 [project.scripts]
 dcatus-validate = "dcatus_validator.validate:main"
-dcatus-convert = "dcatus_validator.convert:main"
+dcatus-upgrade = "dcatus_validator.upgrade:main"
+dcatus-downgrade = "dcatus_validator.downgrade:main"
 
 [dependency-groups]
 dev = [
