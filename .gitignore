@@ -178,4 +178,6 @@ cython_debug/
 
 # Project specific ignores
 invalid_datasets.json
-converted_dcat_data/*
+upgraded_dcat_data/*
+downgraded_dcat_data/*
+test_json/*

@@ -1,4 +1,4 @@
-"""Convert a valid DCAT-US v1.1 catalog to a valid DCAT-US v3.0 catalog."""
+"""Upgrade a valid DCAT-US v1.1 catalog to a valid DCAT-US v3.0 catalog."""
 
 import copy
 import json
@@ -25,7 +25,7 @@ class CatalogLoadException(Exception):
     pass
 
 
-class CatalogConversionException(Exception):
+class CatalogUpgradeException(Exception):
     pass
 
 
@@ -59,8 +59,8 @@ def _load_dcat_catalog(filepath: Path) -> dict:
     return parsed
 
 
-def convert_dcat_catalog(old_catalog: dict) -> dict:
-    """Convert DCAT-US v1.1 catalog to DCAT-US v3.0 catalog."""
+def upgrade_dcat_catalog(old_catalog: dict) -> dict:
+    """Upgrade DCAT-US v1.1 catalog to DCAT-US v3.0 catalog."""
     new_catalog = copy.deepcopy(old_catalog)
 
     # conformsTo on the Catalog
@@ -107,16 +107,16 @@ def convert_dcat_catalog(old_catalog: dict) -> dict:
             dataset = transforms.transform_issued(dataset)
             datasets[i] = dataset
         except Exception as e:
-            raise CatalogConversionException(
-                f"Failed to convert dataset {identifier}: {e}"
+            raise CatalogUpgradeException(
+                f"Failed to upgrade dataset {identifier}: {e}"
             ) from e
 
     return new_catalog
 
 
 def _export_converted_catalog(catalog: dict, output_dir: str) -> None:
-    """Write the converted DCAT-US v3.0 catalog to disk as JSON."""
-    click.echo("Saving converted DCAT-US 3.0 to disk.")
+    """Write the upgraded DCAT-US v3.0 catalog to disk as JSON."""
+    click.echo("Saving upgraded DCAT-US 3.0 to disk.")
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -146,7 +146,7 @@ def _count_errors(invalid_datasets: list[InvalidDataset]) -> int:
     type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
 )
 @click.option(
-    "-o", "--output-dir", help="Output directory", default="converted_dcat_data"
+    "-o", "--output-dir", help="Output directory", default="upgraded_dcat_data"
 )
 @click.option(
     "--dry-run",
@@ -161,11 +161,11 @@ def _count_errors(invalid_datasets: list[InvalidDataset]) -> int:
     default=False,
 )
 def main(filepath, output_dir, dry_run, strict):
-    """Convert a DCAT-US v1.1 catalog file to DCAT-US v3.0."""
+    """Upgrade a DCAT-US v1.1 catalog file to DCAT-US v3.0."""
     v1_1_registry = load_schema_registry(V1_1.definitions_dir)
     v3_0_registry = load_schema_registry(V3_0.definitions_dir)
 
-    results = {"error": False, "conversion_successful": False}
+    results = {"error": False, "upgrade_successful": False}
     counts = {
         "datasets": 0,
         "valid_v1_1": 0,
@@ -176,7 +176,7 @@ def main(filepath, output_dir, dry_run, strict):
         "validation_errors_v3_0": 0,
     }
 
-    click.echo(f"Converting DCAT-US v1.1 to DCAT-US v3.0 for {filepath}")
+    click.echo(f"Upgrading DCAT-US v1.1 to DCAT-US v3.0 for {filepath}")
     try:
         catalog_to_convert = _load_dcat_catalog(filepath)
         datasets = catalog_to_convert.get("dataset", [])
@@ -187,7 +187,7 @@ def main(filepath, output_dir, dry_run, strict):
         if v1_1_catalog_errors:
             click.echo(
                 f"Warning: input catalog failed v1.1 validation with "
-                f"{len(v1_1_catalog_errors)} error(s) — converting anyway."
+                f"{len(v1_1_catalog_errors)} error(s) — upgrading anyway."
             )
             for line in v1_1_catalog_errors:
                 click.echo(f"  {line}")
@@ -204,7 +204,7 @@ def main(filepath, output_dir, dry_run, strict):
             f"{counts['invalid_v1_1']} invalid."
         )
 
-        converted_catalog = convert_dcat_catalog(catalog_to_convert)
+        converted_catalog = upgrade_dcat_catalog(catalog_to_convert)
 
         # Catalog-level v3.0 validation
         v3_0_catalog_errors = validate_catalog(converted_catalog, "v3.0")
@@ -244,18 +244,18 @@ def main(filepath, output_dir, dry_run, strict):
             f"There was an error loading the DCAT-US v1.1 catalog: {e}", err=True
         )
 
-    except CatalogConversionException as e:
+    except CatalogUpgradeException as e:
         results["error"] = True
         click.echo(
-            f"There was an error converting a DCAT-US v1.1 catalog to DCAT-US v3.0: {e}",
+            f"There was an error upgrading a DCAT-US v1.1 catalog to DCAT-US v3.0: {e}",
             err=True,
         )
     except CatalogValidationException as e:
         results["error"] = True
-        click.echo(f"Converted catalog is not valid DCAT-US v3.0: {e}", err=True)
+        click.echo(f"Upgraded catalog is not valid DCAT-US v3.0: {e}", err=True)
 
     if not results["error"] and counts["datasets"] == counts["valid_v3_0"]:
-        results["conversion_successful"] = True
+        results["upgrade_successful"] = True
 
     click.echo(f"RESULTS:{json.dumps(results)}")
     click.echo(f"COUNTS:{json.dumps(counts)}")
