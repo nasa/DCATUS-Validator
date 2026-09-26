@@ -7,6 +7,7 @@ helpers shared by the conversion script.
 import json
 import logging
 import sys
+from collections.abc import Sequence
 from typing import TypedDict
 
 import click
@@ -28,7 +29,7 @@ class CatalogValidationException(Exception):
     """Raised when a catalog fails schema validation and the caller treats it as fatal."""
 
 
-def _collect_errors(validator: Draft202012Validator, document: dict) -> list[str]:
+def _collect_errors(validator: Draft202012Validator, document: object) -> list[str]:
     """
     Validate a document and return its errors as deduplicated, sorted strings.
 
@@ -73,7 +74,7 @@ def validate_catalog(catalog: dict, schema_version: str = "v3.0") -> list[str]:
 
 
 def validate_datasets(
-    datasets: list[dict], schema_version: str = "v3.0"
+    datasets: Sequence[object], schema_version: str = "v3.0"
 ) -> list[InvalidDataset]:
     """
     Validate each dataset individually and report only the invalid ones.
@@ -92,7 +93,11 @@ def validate_datasets(
         if errors:
             invalid_datasets.append(
                 {
-                    "title": dataset.get("title", "Unknown Title"),
+                    "title": (
+                        dataset.get("title", "Unknown Title")
+                        if isinstance(dataset, dict)
+                        else "Unknown Title"
+                    ),
                     "errors": errors,
                 }
             )
@@ -168,9 +173,13 @@ def main(filepath: str, schema_version: str, output: str) -> None:
         logging.error("Catalog validation failed with %d errors:", len(invalid_catalog))
         for error in invalid_catalog:
             logging.error("  - %s", error)
-        sys.exit(1)
     else:
         logging.info("Catalog is valid.")
+
+    # The catalog schema also validates datasets. Continue after those errors
+    # so the per-dataset report is written, but never iterate a malformed container.
+    if not isinstance(datasets, list):
+        sys.exit(1)
 
     logging.info(
         "Validating %d datasets against DCAT-US %s...", len(datasets), schema_version
@@ -181,12 +190,13 @@ def main(filepath: str, schema_version: str, output: str) -> None:
     valid_count = len(datasets) - len(invalid_datasets)
     logging.info("%d valid, %d invalid.", valid_count, len(invalid_datasets))
 
-    if not invalid_datasets:
-        logging.info("All datasets are valid.")
-        return
+    if invalid_datasets:
+        _write_report(invalid_datasets, output)
 
-    _write_report(invalid_datasets, output)
-    sys.exit(1)
+    if invalid_catalog or invalid_datasets:
+        sys.exit(1)
+
+    logging.info("All datasets are valid.")
 
 
 if __name__ == "__main__":

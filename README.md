@@ -96,6 +96,7 @@ The script prints the number of datasets checked and how many passed or failed.
 
 - If every dataset is valid, it logs `All datasets are valid.` and exits successfully.
 - If any dataset is invalid, it writes a JSON report (default `invalid_datasets.json`) listing each invalid dataset's title and its validation errors, and exits with a non-zero status.
+- Catalog-level errors are logged and still cause a non-zero exit. When individual datasets are invalid, their report is written even when catalog validation also fails. A malformed `dataset` container is rejected without trying to iterate it.
 
 ## Upgrading a catalog (v1.1 to v3.0) via CLI
 
