@@ -63,10 +63,10 @@ def propagate_license(dataset: dict) -> dict:
 
 
 def transform_access_rights(dataset: dict) -> dict:
-    """Add `accessRights` based on the existing `accessLevel`.
+    """Replace `accessLevel` with `accessRights` for DCAT-US 3.0.
 
-    Does not remove `accessLevel`. Returns the dataset unchanged if
-    `accessLevel` is missing or `accessRights` is already set.
+    Returns the dataset unchanged if `accessLevel` is missing or
+    `accessRights` is already set.
     """
 
     if "accessRights" in dataset:
@@ -78,6 +78,7 @@ def transform_access_rights(dataset: dict) -> dict:
 
     new_dataset = copy.deepcopy(dataset)
     new_dataset["accessRights"] = ACCESS_RIGHTS_BY_LEVEL[access_level]
+    del new_dataset["accessLevel"]
     return new_dataset
 
 

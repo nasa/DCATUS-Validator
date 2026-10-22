@@ -190,12 +190,11 @@ def reverse_transform_language(dataset: dict) -> dict:
 
 
 def reverse_transform_access_level(dataset: dict) -> dict:
-    """Derive `accessLevel` from `accessRights` when `accessLevel` is
-    missing, using the reverse of `ACCESS_RIGHTS_BY_LEVEL`.
+    """Replace `accessRights` with `accessLevel` for DCAT-US 1.1, using the
+    reverse of `ACCESS_RIGHTS_BY_LEVEL`.
 
-    Does not remove `accessRights`. Returns the dataset unchanged if
-    `accessLevel` is already present or `accessRights` doesn't match a
-    known value.
+    Returns the dataset unchanged if `accessLevel` is already present or
+    `accessRights` doesn't match a known value.
     """
     if "accessLevel" in dataset:
         return dataset
@@ -206,6 +205,7 @@ def reverse_transform_access_level(dataset: dict) -> dict:
 
     new_dataset = copy.deepcopy(dataset)
     new_dataset["accessLevel"] = REVERSE_ACCESS_RIGHTS_BY_LEVEL[access_rights]
+    del new_dataset["accessRights"]
     return new_dataset
 
 
