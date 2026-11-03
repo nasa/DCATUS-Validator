@@ -182,6 +182,11 @@ The `test_json/` directory contains sample catalogs for testing:
 - `dcat1-sample.json` - Example DCAT-US v1.1 catalog
 - `dcat3-sample.json` - Example DCAT-US v3.0 catalog
 
+## Architecture Decisions
+
+Decisions that diverge from or go beyond GSA guidance are recorded in
+[`docs/adr/`](docs/adr/).
+
 ## Related Resources
 
 - [DCAT-US v1.1 Schema](https://resources.data.gov/resources/dcat-us/)

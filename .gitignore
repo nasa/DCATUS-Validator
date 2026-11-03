@@ -182,3 +182,4 @@ upgraded_dcat_data/*
 downgraded_dcat_data/*
 test_json/*
 docs/plans/*
+docs/known-issues.md

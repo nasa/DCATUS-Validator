@@ -234,7 +234,7 @@ def transform_references(dataset: dict) -> dict:
     inverse relation, for resources that cite the dataset.
 
     The migration guide does not cover `references`, so this mapping is
-    inferred from the two schemas' own definitions. See ADR-0002.
+    inferred from the two schemas' own definitions. See ADR-0004.
 
     `Document` requires `title`, so the URL is used as the title as well
     as the `accessURL`. Entries that are not valid IRIs get a title but no
