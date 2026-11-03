@@ -13,6 +13,7 @@ import re
 from datetime import datetime, timezone
 
 from dateutil import parser
+from jsonschema import Draft202012Validator
 from langcodes import Language, find, tag_is_valid
 
 ACCESS_RIGHTS_BY_LEVEL = {
@@ -36,6 +37,21 @@ PERIODICITY_MAP = {
     "P1Y": "annually",
     "PT1S": "continual",
 }
+
+
+def _is_iri(value: str) -> bool:
+    """Report whether `value` satisfies the `iri` format used by v3.0 schemas.
+
+    Delegates to the same format checker the validator runs, so this cannot
+    disagree with validation. v1.1 permits non-URL strings wherever a URL is
+    expected — notably REDACTED markers like "[[REDACTED-EX B6]]" — and v3.0
+    fields declaring `"format": "iri"` reject them.
+    """
+    checker = Draft202012Validator.FORMAT_CHECKER
+    try:
+        return checker.check(value, "iri") is None
+    except Exception:
+        return False
 
 
 def propagate_license(dataset: dict) -> dict:
@@ -63,7 +79,11 @@ def propagate_license(dataset: dict) -> dict:
 
 
 def transform_access_rights(dataset: dict) -> dict:
-    """Replace `accessLevel` with `accessRights` for DCAT-US 3.0.
+    """Add `accessRights` alongside `accessLevel` for DCAT-US 3.0.
+
+    Does not remove `accessLevel`. Per the migration guide's Step 5:
+    "Until updated OMB guidance is issued, keep `accessLevel` in your
+    records — the v3.0 schema will not reject it."
 
     Returns the dataset unchanged if `accessLevel` is missing or
     `accessRights` is already set.
@@ -78,7 +98,6 @@ def transform_access_rights(dataset: dict) -> dict:
 
     new_dataset = copy.deepcopy(dataset)
     new_dataset["accessRights"] = ACCESS_RIGHTS_BY_LEVEL[access_level]
-    del new_dataset["accessLevel"]
     return new_dataset
 
 
@@ -200,6 +219,64 @@ def transform_modified(dataset: dict) -> dict:
         new_dataset["accrualPeriodicity"] = mapped_duration
     # `modified` is Recommended + nullable in DCAT-US v3.0
     del new_dataset["modified"]
+    return new_dataset
+
+
+def transform_references(dataset: dict) -> dict:
+    """Convert `references` from an array of URLs to `page`, a list of
+    Document objects.
+
+    v1.1's `references` ("Related Documents") and v3.0's `page`
+    ("List of pages or documents about this dataset", `foaf:page`,
+    range `foaf:Document`) describe the same relation: documentation
+    about the dataset that is not the data dictionary. Note that this is
+    *not* `isReferencedBy`, which is `dcterms:isReferencedBy` — the
+    inverse relation, for resources that cite the dataset.
+
+    The migration guide does not cover `references`, so this mapping is
+    inferred from the two schemas' own definitions. See ADR-0002.
+
+    `Document` requires `title`, so the URL is used as the title as well
+    as the `accessURL`. Entries that are not valid IRIs get a title but no
+    `accessURL`, since that field declares `"format": "iri"` and would fail
+    validation. This covers v1.1's REDACTED markers, which are not URLs, as
+    well as any malformed entry. Returns the dataset unchanged if
+    `references` is absent.
+    """
+    if "references" not in dataset:
+        return dataset
+
+    value = dataset["references"]
+
+    new_dataset = copy.deepcopy(dataset)
+    del new_dataset["references"]
+
+    if value is None:
+        return new_dataset
+
+    # The v1.1 schema permits a bare REDACTED string in place of the array.
+    entries = [value] if isinstance(value, str) else value
+    if not isinstance(entries, list):
+        return new_dataset
+
+    documents = []
+    for entry in entries:
+        if not isinstance(entry, str):
+            continue
+        if _is_iri(entry):
+            documents.append({"@type": "Document", "title": entry, "accessURL": entry})
+        else:
+            documents.append({"@type": "Document", "title": entry})
+
+    if not documents:
+        return new_dataset
+
+    existing = new_dataset.get("page")
+    if isinstance(existing, list):
+        existing.extend(documents)
+    else:
+        new_dataset["page"] = documents
+
     return new_dataset
 
 

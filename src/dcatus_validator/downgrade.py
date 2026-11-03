@@ -94,6 +94,7 @@ def downgrade_dcat_catalog(v3_catalog: dict) -> dict:
             dataset = rt.reverse_transform_rights(dataset)
             dataset = rt.reverse_transform_sub_organization_of(dataset)
             dataset = rt.reverse_transform_landing_page(dataset)
+            dataset = rt.reverse_transform_page(dataset)
             dataset = rt.reverse_transform_issued_and_modified(dataset)
 
             distributions = dataset.get("distribution", [])

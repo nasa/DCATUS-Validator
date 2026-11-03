@@ -181,3 +181,4 @@ invalid_datasets.json
 upgraded_dcat_data/*
 downgraded_dcat_data/*
 test_json/*
+docs/plans/*

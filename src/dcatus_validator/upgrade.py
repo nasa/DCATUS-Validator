@@ -104,6 +104,7 @@ def upgrade_dcat_catalog(old_catalog: dict) -> dict:
             dataset = transforms.transform_sub_organization_of(dataset)
             dataset = transforms.transform_conforms_to(dataset)
             dataset = transforms.transform_landing_page(dataset)
+            dataset = transforms.transform_references(dataset)
             dataset = transforms.transform_issued(dataset)
             datasets[i] = dataset
         except Exception as e:

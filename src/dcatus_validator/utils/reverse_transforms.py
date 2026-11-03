@@ -43,7 +43,6 @@ V3_ONLY_FIELDS = {
         "provenance",
         "replaces",
         "hasQualityMeasurement",
-        "page",
         "qualifiedAttribution",
         "wasAttributedTo",
         "wasGeneratedBy",
@@ -190,8 +189,11 @@ def reverse_transform_language(dataset: dict) -> dict:
 
 
 def reverse_transform_access_level(dataset: dict) -> dict:
-    """Replace `accessRights` with `accessLevel` for DCAT-US 1.1, using the
+    """Derive `accessLevel` from `accessRights` for DCAT-US 1.1, using the
     reverse of `ACCESS_RIGHTS_BY_LEVEL`.
+
+    Leaves `accessRights` in place, mirroring `transform_access_rights()`,
+    which keeps `accessLevel` on the way up.
 
     Returns the dataset unchanged if `accessLevel` is already present or
     `accessRights` doesn't match a known value.
@@ -205,7 +207,6 @@ def reverse_transform_access_level(dataset: dict) -> dict:
 
     new_dataset = copy.deepcopy(dataset)
     new_dataset["accessLevel"] = REVERSE_ACCESS_RIGHTS_BY_LEVEL[access_rights]
-    del new_dataset["accessRights"]
     return new_dataset
 
 
@@ -294,6 +295,43 @@ def reverse_transform_landing_page(dataset: dict) -> dict:
         new_dataset["landingPage"] = access_url
     else:
         del new_dataset["landingPage"]
+    return new_dataset
+
+
+def reverse_transform_page(dataset: dict) -> dict:
+    """Convert `page` from a list of Document objects back to
+    `references`, an array of URL strings.
+
+    Each Document contributes its `accessURL`, falling back to `title`
+    when there is none — which is how REDACTED markers, stored as a bare
+    title by `transform_references()`, are recovered. Drops the key
+    entirely if nothing usable survives, since v1.1 sets `minItems: 1`
+    on the array form.
+    """
+    if "page" not in dataset:
+        return dataset
+
+    value = dataset["page"]
+
+    new_dataset = copy.deepcopy(dataset)
+    del new_dataset["page"]
+
+    if not isinstance(value, list):
+        return new_dataset
+
+    references = []
+    for document in value:
+        if not isinstance(document, dict):
+            continue
+        url = document.get("accessURL")
+        if not isinstance(url, str):
+            url = document.get("title")
+        if isinstance(url, str):
+            references.append(url)
+
+    if references:
+        new_dataset["references"] = references
+
     return new_dataset
 
 
