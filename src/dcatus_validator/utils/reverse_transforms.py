@@ -61,6 +61,9 @@ V3_ONLY_FIELDS = {
         "inventoried",
         "checksum",
         "otherIdentifier",
+        # Distribution-level only. Dataset-level `page` must NOT be added to
+        # the list above — it reverses to `references` per ADR-0004.
+        "page",
     ],
     "catalog": [
         "datasetSeries",
