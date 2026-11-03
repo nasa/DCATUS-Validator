@@ -109,26 +109,26 @@ uv run dcatus-upgrade path/to/your/catalog.json
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `-o`, `--output-dir` | Directory to write the upgraded catalog to | `converted_dcat_data` |
+| `-o`, `--output-dir` | Directory to write the upgraded catalog to | `upgraded_dcat_data` |
 | `--dry-run` | Upgrade and validate in memory without writing any files | off |
 | `--strict` | Exit with an error if the upgraded catalog fails v3.0 validation | off |
 
 ### Examples
 
 ```bash
-# Upgrade a v1.1 catalog and write the result to converted_dcat_data/catalog.json
+# Upgrade a v1.1 catalog and write the result to upgraded_dcat_data/catalog.json
 uv run dcatus-upgrade test_json/dcat1-sample.json
 
 # Preview the upgrade without writing output
 uv run dcatus-upgrade test_json/dcat1-sample.json --dry-run
 
 # Upgrade to a custom output directory and fail on invalid v3.0 output
-uv run dcatus-upgrade test_json/dcat1-sample.json -o converted_dcat_data --strict
+uv run dcatus-upgrade test_json/dcat1-sample.json -o upgraded_dcat_data --strict
 ```
 
 ### Output
 
-- The upgraded catalog is written to `<output-dir>/catalog.json` (default `converted_dcat_data/catalog.json`), unless `--dry-run` is used.
+- The upgraded catalog is written to `<output-dir>/catalog.json` (default `upgraded_dcat_data/catalog.json`), unless `--dry-run` is used.
 - If any upgraded datasets fail v3.0 validation, they are also written to `<output-dir>/invalid_datasets.json`.
 - Summary counts (datasets processed, valid/invalid before and after upgrade) are printed to the console.
 
