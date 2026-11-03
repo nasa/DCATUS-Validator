@@ -27,4 +27,6 @@ from GSA at runtime or inlining a single monolithic schema.
   recorded upstream commit, tag, or date to diff against. Whoever vendors an
   update next should record the source and date here or in a successor ADR.
 - The generator that produced these files has at least one known bug — see
-  [Known Issues](../known-issues.md).
+  [Known Issues](../known-issues.md). One such bug, mis-cased `$ref`s, was
+  patched in place by [ADR-0005](0005-patch-miscased-refs-in-vendored-schemas.md),
+  so the vendored files are no longer byte-identical to generator output.

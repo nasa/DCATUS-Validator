@@ -182,7 +182,7 @@
           "type": "null"
         },
         {
-          "$ref": "./Conceptscheme.json",
+          "$ref": "./ConceptScheme.json",
           "description": "inline description of the gazetteer"
         }
       ],
