@@ -89,6 +89,9 @@ def upgrade_dcat_catalog(old_catalog: dict) -> dict:
             del new_catalog["modified"]
 
     datasets = new_catalog.get("dataset", [])
+    # `build_dataset_series` needs pre-transform identifiers, and the loop
+    # below rebinds `datasets[i]`.
+    original_datasets = copy.deepcopy(datasets)
     click.echo(f"Transforming {len(datasets)} datasets.")
     for i, dataset in enumerate(datasets):
         identifier = dataset.get("identifier", f"index {i}")
@@ -105,12 +108,27 @@ def upgrade_dcat_catalog(old_catalog: dict) -> dict:
             dataset = transforms.transform_conforms_to(dataset)
             dataset = transforms.transform_landing_page(dataset)
             dataset = transforms.transform_references(dataset)
+            dataset = transforms.transform_primary_it_investment_uii(dataset)
             dataset = transforms.transform_issued(dataset)
             datasets[i] = dataset
         except Exception as e:
             raise CatalogUpgradeException(
                 f"Failed to upgrade dataset {identifier}: {e}"
             ) from e
+
+    # Catalog-level: needs every dataset at once, so it cannot go above.
+    try:
+        dataset_series, top_level_datasets = transforms.build_dataset_series(
+            original_datasets, datasets
+        )
+    except ValueError as e:
+        raise CatalogUpgradeException(f"Failed to build datasetSeries: {e}") from e
+
+    new_catalog["dataset"] = top_level_datasets
+    if dataset_series:
+        new_catalog["datasetSeries"] = dataset_series
+    else:
+        new_catalog.pop("datasetSeries", None)
 
     return new_catalog
 
@@ -175,6 +193,7 @@ def main(filepath, output_dir, dry_run, strict):
         "valid_v3_0": 0,
         "invalid_v3_0": 0,
         "validation_errors_v3_0": 0,
+        "dataset_series": 0,
     }
 
     click.echo(f"Upgrading DCAT-US v1.1 to DCAT-US v3.0 for {filepath}")
@@ -219,8 +238,13 @@ def main(filepath, output_dir, dry_run, strict):
                 raise CatalogValidationException(message)
             click.echo(f"Invalid DCAT-US data: {message}", err=True)
 
-        # Per-dataset v3.0 validation
-        converted_datasets = converted_catalog.get("dataset", [])
+        # Per-dataset v3.0 validation. Series members left the top-level
+        # array but are still Datasets, so validate them too.
+        converted_datasets = list(converted_catalog.get("dataset", []))
+        series_list = converted_catalog.get("datasetSeries", [])
+        counts["dataset_series"] = len(series_list)
+        for series in series_list:
+            converted_datasets.extend(series.get("seriesMember", []))
         invalid_v3_0 = validate_datasets(converted_datasets, "v3.0")
         counts["invalid_v3_0"] = len(invalid_v3_0)
         counts["valid_v3_0"] = len(converted_datasets) - len(invalid_v3_0)
@@ -255,7 +279,10 @@ def main(filepath, output_dir, dry_run, strict):
         results["error"] = True
         click.echo(f"Upgraded catalog is not valid DCAT-US v3.0: {e}", err=True)
 
-    if not results["error"] and counts["datasets"] == counts["valid_v3_0"]:
+    # A promoted parent is a DatasetSeries, covered by catalog-level
+    # validation rather than the per-dataset pass, so count it separately.
+    accounted_for = counts["valid_v3_0"] + counts["dataset_series"]
+    if not results["error"] and counts["datasets"] == accounted_for:
         results["upgrade_successful"] = True
 
     click.echo(f"RESULTS:{json.dumps(results)}")

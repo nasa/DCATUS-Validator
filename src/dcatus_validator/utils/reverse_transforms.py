@@ -18,6 +18,10 @@ from .transforms import ACCESS_RIGHTS_BY_LEVEL, PERIODICITY_MAP
 REVERSE_ACCESS_RIGHTS_BY_LEVEL = {v: k for k, v in ACCESS_RIGHTS_BY_LEVEL.items()}
 REVERSE_PERIODICITY_MAP = {v: k for k, v in PERIODICITY_MAP.items()}
 
+# v1.1's `primaryITInvestmentUII` pattern, from `schemas/dcat1/dataset.json`.
+# Used to pick the UII back out of v3.0's untyped `otherIdentifier` list.
+_UII_RE = re.compile(r"^[0-9]{3}-[0-9]{9}$")
+
 # v3.0-only fields with no v1.1 equivalent, dropped by `remove_v3_only_fields()`.
 V3_ONLY_FIELDS = {
     "dataset": [
@@ -66,7 +70,9 @@ V3_ONLY_FIELDS = {
         "page",
     ],
     "catalog": [
-        "datasetSeries",
+        # Not `datasetSeries` — `reverse_transform_dataset_series()` expands
+        # it back to `isPartOf`, so dropping it here would erase the datasets
+        # inside it. See ADR-0006.
         "record",
         "service",
         "themeTaxonomy",
@@ -336,6 +342,107 @@ def reverse_transform_page(dataset: dict) -> dict:
         new_dataset["references"] = references
 
     return new_dataset
+
+
+def reverse_transform_primary_it_investment_uii(dataset: dict) -> dict:
+    """Recover `primaryITInvestmentUII` from v3.0's `otherIdentifier` list.
+
+    `otherIdentifier` records nothing about where each entry came from, so
+    this takes the first one matching v1.1's UII pattern and leaves the
+    rest — a heuristic, not a lossless reversal. An entry that matches by
+    coincidence will be misattributed. See ADR-0007.
+
+    Must run before `remove_v3_only_fields(dataset, "dataset")`, which
+    drops `otherIdentifier`. Returns the dataset unchanged if nothing
+    matches.
+    """
+    if "primaryITInvestmentUII" in dataset:
+        return dataset
+
+    value = dataset.get("otherIdentifier")
+    if not isinstance(value, list):
+        return dataset
+
+    for i, entry in enumerate(value):
+        if isinstance(entry, str) and _UII_RE.match(entry.strip()):
+            new_dataset = copy.deepcopy(dataset)
+            new_dataset["primaryITInvestmentUII"] = new_dataset["otherIdentifier"].pop(
+                i
+            )
+            if not new_dataset["otherIdentifier"]:
+                del new_dataset["otherIdentifier"]
+            return new_dataset
+
+    return dataset
+
+
+def reverse_transform_dataset_series(catalog: dict) -> dict:
+    """Expand catalog-level `datasetSeries` back into flat v1.1 datasets.
+
+    The mirror of `transforms.build_dataset_series()`, and the only reverse
+    function taking a catalog rather than a dataset. Each series becomes its
+    parent dataset plus its `seriesMember` entries, each member carrying an
+    `isPartOf` pointing back at the parent.
+
+    The parent identifier comes from `@id`, falling back to a retained
+    `identifier` — the forward transform sets exactly one of the two
+    (ADR-0006). A hand-authored series with neither yields members without
+    `isPartOf`, since inventing the linkage would be worse than losing it.
+
+    Must run before `remove_v3_only_fields(catalog, "catalog")` and before
+    the per-dataset reverse loop, so expanded members get the rest of the
+    chain. Returns the catalog unchanged if `datasetSeries` is absent.
+    """
+    series_list = catalog.get("datasetSeries")
+    if not isinstance(series_list, list) or not series_list:
+        return catalog
+
+    new_catalog = copy.deepcopy(catalog)
+    del new_catalog["datasetSeries"]
+
+    datasets = new_catalog.get("dataset")
+    if not isinstance(datasets, list):
+        datasets = []
+        new_catalog["dataset"] = datasets
+
+    for parent, members in _expand_series(series_list):
+        datasets.append(parent)
+        datasets.extend(members)
+
+    return new_catalog
+
+
+def _expand_series(series_list: list):
+    """Yield `(parent_dataset, members)` for each entry in `series_list`."""
+    for series in series_list:
+        if not isinstance(series, dict):
+            continue
+
+        parent = copy.deepcopy(series)
+        members = parent.pop("seriesMember", None)
+        parent["@type"] = "dcat:Dataset"
+
+        identifier = parent.pop("@id", None)
+        if isinstance(identifier, str) and identifier:
+            parent["identifier"] = identifier
+        else:
+            identifier = parent.get("identifier")
+
+        contact_point = parent.get("contactPoint")
+        if isinstance(contact_point, list) and len(contact_point) == 1:
+            parent["contactPoint"] = contact_point[0]
+
+        recovered = []
+        if isinstance(members, list):
+            for member in members:
+                if not isinstance(member, dict):
+                    continue
+                member = copy.deepcopy(member)
+                if isinstance(identifier, str) and identifier:
+                    member["isPartOf"] = identifier
+                recovered.append(member)
+
+        yield parent, recovered
 
 
 def reverse_transform_issued_and_modified(dataset: dict) -> dict:

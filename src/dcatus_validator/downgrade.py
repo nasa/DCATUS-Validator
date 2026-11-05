@@ -76,6 +76,10 @@ def downgrade_dcat_catalog(v3_catalog: dict) -> dict:
         "https://project-open-data.cio.gov/v1.1/schema/catalog.json"
     )
 
+    # Must precede the per-dataset loop below so expanded series members
+    # receive the rest of the reverse chain.
+    v1_catalog = rt.reverse_transform_dataset_series(v1_catalog)
+
     # Remove v3.0-only catalog fields.
     v1_catalog = rt.remove_v3_only_fields(v1_catalog, "catalog")
 
@@ -95,6 +99,9 @@ def downgrade_dcat_catalog(v3_catalog: dict) -> dict:
             dataset = rt.reverse_transform_sub_organization_of(dataset)
             dataset = rt.reverse_transform_landing_page(dataset)
             dataset = rt.reverse_transform_page(dataset)
+            # Must precede `remove_v3_only_fields`, which drops the
+            # `otherIdentifier` this reads from.
+            dataset = rt.reverse_transform_primary_it_investment_uii(dataset)
             dataset = rt.reverse_transform_issued_and_modified(dataset)
 
             distributions = dataset.get("distribution", [])
