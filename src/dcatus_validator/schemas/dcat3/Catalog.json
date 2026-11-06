@@ -58,7 +58,7 @@
       "description": "List of dataset series included in the catalog.",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Datasetseries.json"
+        "$ref": "./DatasetSeries.json"
       },
       "requirementLevel": "Optional"
     },
@@ -84,7 +84,7 @@
       "description": "A catalog record describing how a single resource (such as a dataset or data service) is registered in the catalog",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Catalogrecord.json"
+        "$ref": "./CatalogRecord.json"
       },
       "_oldDocs": {
         "uri": "dcat:record",
@@ -97,7 +97,7 @@
       "description": "List of data services included in the catalog. Use this together with dataset so the catalog is not empty.",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Dataservice.json"
+        "$ref": "./DataService.json"
       },
       "_oldDocs": {
         "uri": "dcat:service",
@@ -123,7 +123,7 @@
       "description": "Controlled vocabulary or taxonomy used to classify catalog resources, such as datasets and services",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Conceptscheme.json"
+        "$ref": "./ConceptScheme.json"
       },
       "_oldDocs": {
         "uri": "dcat:themeTaxonomy",

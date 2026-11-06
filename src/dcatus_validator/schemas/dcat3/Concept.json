@@ -56,7 +56,7 @@
         "inScheme": {
           "title": "in scheme",
           "description": "Concept scheme defining this concept",
-          "$ref": "./Conceptscheme.json",
+          "$ref": "./ConceptScheme.json",
           "examples": [
             {
               "@id": "https://example.gov/concept-schemes/science-domains",

@@ -12,7 +12,9 @@ import copy
 import re
 from datetime import datetime, timezone
 
+import click
 from dateutil import parser
+from jsonschema import Draft202012Validator
 from langcodes import Language, find, tag_is_valid
 
 ACCESS_RIGHTS_BY_LEVEL = {
@@ -36,6 +38,21 @@ PERIODICITY_MAP = {
     "P1Y": "annually",
     "PT1S": "continual",
 }
+
+
+def _is_iri(value: str) -> bool:
+    """Report whether `value` satisfies the `iri` format used by v3.0 schemas.
+
+    Delegates to the same format checker the validator runs, so this cannot
+    disagree with validation. v1.1 permits non-URL strings wherever a URL is
+    expected — notably REDACTED markers like "[[REDACTED-EX B6]]" — and v3.0
+    fields declaring `"format": "iri"` reject them.
+    """
+    checker = Draft202012Validator.FORMAT_CHECKER
+    try:
+        return checker.check(value, "iri") is None
+    except Exception:
+        return False
 
 
 def propagate_license(dataset: dict) -> dict:
@@ -63,7 +80,11 @@ def propagate_license(dataset: dict) -> dict:
 
 
 def transform_access_rights(dataset: dict) -> dict:
-    """Replace `accessLevel` with `accessRights` for DCAT-US 3.0.
+    """Add `accessRights` alongside `accessLevel` for DCAT-US 3.0.
+
+    Does not remove `accessLevel`. Per the migration guide's Step 5:
+    "Until updated OMB guidance is issued, keep `accessLevel` in your
+    records — the v3.0 schema will not reject it."
 
     Returns the dataset unchanged if `accessLevel` is missing or
     `accessRights` is already set.
@@ -78,7 +99,6 @@ def transform_access_rights(dataset: dict) -> dict:
 
     new_dataset = copy.deepcopy(dataset)
     new_dataset["accessRights"] = ACCESS_RIGHTS_BY_LEVEL[access_level]
-    del new_dataset["accessLevel"]
     return new_dataset
 
 
@@ -201,6 +221,223 @@ def transform_modified(dataset: dict) -> dict:
     # `modified` is Recommended + nullable in DCAT-US v3.0
     del new_dataset["modified"]
     return new_dataset
+
+
+def transform_references(dataset: dict) -> dict:
+    """Convert `references` from an array of URLs to `page`, a list of
+    Document objects.
+
+    v1.1's `references` ("Related Documents") and v3.0's `page`
+    ("List of pages or documents about this dataset", `foaf:page`,
+    range `foaf:Document`) describe the same relation: documentation
+    about the dataset that is not the data dictionary. Note that this is
+    *not* `isReferencedBy`, which is `dcterms:isReferencedBy` — the
+    inverse relation, for resources that cite the dataset.
+
+    The migration guide does not cover `references`, so this mapping is
+    inferred from the two schemas' own definitions. See ADR-0004.
+
+    `Document` requires `title`, so the URL is used as the title as well
+    as the `accessURL`. Entries that are not valid IRIs get a title but no
+    `accessURL`, since that field declares `"format": "iri"` and would fail
+    validation. This covers v1.1's REDACTED markers, which are not URLs, as
+    well as any malformed entry. Returns the dataset unchanged if
+    `references` is absent.
+    """
+    if "references" not in dataset:
+        return dataset
+
+    value = dataset["references"]
+
+    new_dataset = copy.deepcopy(dataset)
+    del new_dataset["references"]
+
+    if value is None:
+        return new_dataset
+
+    # The v1.1 schema permits a bare REDACTED string in place of the array.
+    entries = [value] if isinstance(value, str) else value
+    if not isinstance(entries, list):
+        return new_dataset
+
+    documents = []
+    for entry in entries:
+        if not isinstance(entry, str):
+            continue
+        if _is_iri(entry):
+            documents.append({"@type": "Document", "title": entry, "accessURL": entry})
+        else:
+            documents.append({"@type": "Document", "title": entry})
+
+    if not documents:
+        return new_dataset
+
+    existing = new_dataset.get("page")
+    if isinstance(existing, list):
+        existing.extend(documents)
+    else:
+        new_dataset["page"] = documents
+
+    return new_dataset
+
+
+def transform_primary_it_investment_uii(dataset: dict) -> dict:
+    """Move `primaryITInvestmentUII` into v3.0's `otherIdentifier` list.
+
+    The migration guide says the v1.1 field "can be preserved in
+    `otherIdentifier` if needed"; GSA's reference converter does not do so.
+    `Identifier`'s top-level `anyOf` accepts a bare string, so the UII maps
+    across with no object construction and no invented data. See ADR-0007.
+
+    Appends to an existing `otherIdentifier` rather than replacing it,
+    matching `transform_references()`. Returns the dataset unchanged if
+    `primaryITInvestmentUII` is absent.
+    """
+    if "primaryITInvestmentUII" not in dataset:
+        return dataset
+
+    value = dataset["primaryITInvestmentUII"]
+
+    new_dataset = copy.deepcopy(dataset)
+    del new_dataset["primaryITInvestmentUII"]
+
+    if not isinstance(value, str) or not value.strip():
+        return new_dataset
+
+    existing = new_dataset.get("otherIdentifier")
+    if isinstance(existing, list):
+        existing.append(value)
+    else:
+        new_dataset["otherIdentifier"] = [value]
+
+    return new_dataset
+
+
+def build_dataset_series(
+    original_datasets: list, transformed_datasets: list
+) -> tuple[list, list]:
+    """Promote `isPartOf` parents to catalog-level `datasetSeries` entries.
+
+    Migration guide Step 13, and the only catalog-level transform here: a
+    parent moves out of `dataset[]` with its children nested beneath it, so
+    this needs every dataset at once and cannot run in the per-dataset loop.
+
+    Linkage resolves against `original_datasets` — the pre-transform
+    identifiers — while output is built from `transformed_datasets`,
+    matching GSA's converter. The two lists are positional. See ADR-0006.
+
+    :param original_datasets: Datasets as they appeared in the v1.1 input.
+    :param transformed_datasets: The same datasets after the per-dataset
+        transform chain, in the same order.
+    :return: `(dataset_series, top_level_datasets)`. Promoted parents and
+        their children are absent from `top_level_datasets`.
+    :raises ValueError: On a self-referencing `isPartOf` or a nested series
+        (a dataset that is both a parent and a child). `upgrade.py` wraps
+        this in `CatalogUpgradeException`.
+    """
+    # First occurrence wins on duplicate identifiers, matching GSA.
+    by_identifier: dict[str, int] = {}
+    for i, dataset in enumerate(original_datasets):
+        identifier = _series_key(dataset.get("identifier"))
+        if identifier and identifier not in by_identifier:
+            by_identifier[identifier] = i
+
+    parent_of: dict[int, int] = {}
+    orphans: list[tuple[int, str]] = []
+    for i, dataset in enumerate(original_datasets):
+        is_part_of = _series_key(dataset.get("isPartOf"))
+        if not is_part_of:
+            continue
+
+        parent_index = by_identifier.get(is_part_of)
+        if parent_index is None:
+            orphans.append((i, is_part_of))
+            continue
+        if parent_index == i:
+            raise ValueError(
+                f"Dataset {is_part_of} declares itself its own isPartOf parent"
+            )
+        parent_of[i] = parent_index
+
+    children_of: dict[int, list[int]] = {}
+    for child_index, parent_index in parent_of.items():
+        children_of.setdefault(parent_index, []).append(child_index)
+
+    # `seriesMember` has range `dcat:Dataset`, so it cannot hold a series.
+    for parent_index in children_of:
+        if parent_index in parent_of:
+            identifier = _series_key(original_datasets[parent_index].get("identifier"))
+            raise ValueError(
+                f"Dataset {identifier} is both a series parent and a series "
+                f"member; nested dataset series are not supported"
+            )
+
+    for child_index, missing_parent in orphans:
+        identifier = _series_key(original_datasets[child_index].get("identifier"))
+        click.echo(
+            f"Warning: dataset {identifier or f'index {child_index}'} declares "
+            f"isPartOf {missing_parent}, which is not in this catalog. Leaving "
+            f"it as a top-level dataset with isPartOf intact."
+        )
+
+    dataset_series = []
+    for parent_index in sorted(children_of):
+        series = _build_one_series(
+            original_datasets[parent_index],
+            transformed_datasets[parent_index],
+            [transformed_datasets[c] for c in sorted(children_of[parent_index])],
+        )
+        dataset_series.append(series)
+
+    promoted = set(children_of) | set(parent_of)
+    top_level_datasets = [
+        dataset for i, dataset in enumerate(transformed_datasets) if i not in promoted
+    ]
+
+    return dataset_series, top_level_datasets
+
+
+def _build_one_series(
+    original_parent: dict, transformed_parent: dict, transformed_children: list
+) -> dict:
+    """Build one `DatasetSeries` from a promoted parent and its children.
+
+    `@id` declares `"format": "iri"`, which is enforced, and half of NASA's
+    identifiers are bare DOIs. A non-IRI identifier therefore stays in
+    `identifier` rather than becoming an invalid `@id`; the downgrade reads
+    whichever of the two is present. See ADR-0006.
+    """
+    series = copy.deepcopy(transformed_parent)
+    series["@type"] = "DatasetSeries"
+
+    series.pop("first", None)
+    series.pop("last", None)
+    series.pop("isPartOf", None)
+
+    # `contactPoint` is a single object on a Dataset but a list on a series.
+    contact_point = series.get("contactPoint")
+    if isinstance(contact_point, dict):
+        series["contactPoint"] = [contact_point]
+
+    identifier = _series_key(original_parent.get("identifier"))
+    if identifier and _is_iri(identifier):
+        series["@id"] = identifier
+        series.pop("identifier", None)
+
+    series["seriesMember"] = [copy.deepcopy(child) for child in transformed_children]
+    for member in series["seriesMember"]:
+        if isinstance(member, dict):
+            member.pop("isPartOf", None)
+
+    return series
+
+
+def _series_key(value) -> str:
+    """Return `value` as a stripped string for series linkage, or "" if it
+    is not a usable identifier."""
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
 
 
 def transform_rights(dataset: dict) -> dict:

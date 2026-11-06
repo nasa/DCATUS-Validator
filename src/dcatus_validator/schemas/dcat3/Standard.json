@@ -205,7 +205,7 @@
           "title": "Null allowed when not required"
         },
         {
-          "$ref": "./Conceptscheme.json",
+          "$ref": "./ConceptScheme.json",
           "description": "inline description of ConceptScheme"
         }
       ],

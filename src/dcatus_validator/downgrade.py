@@ -76,6 +76,10 @@ def downgrade_dcat_catalog(v3_catalog: dict) -> dict:
         "https://project-open-data.cio.gov/v1.1/schema/catalog.json"
     )
 
+    # Must precede the per-dataset loop below so expanded series members
+    # receive the rest of the reverse chain.
+    v1_catalog = rt.reverse_transform_dataset_series(v1_catalog)
+
     # Remove v3.0-only catalog fields.
     v1_catalog = rt.remove_v3_only_fields(v1_catalog, "catalog")
 
@@ -94,6 +98,10 @@ def downgrade_dcat_catalog(v3_catalog: dict) -> dict:
             dataset = rt.reverse_transform_rights(dataset)
             dataset = rt.reverse_transform_sub_organization_of(dataset)
             dataset = rt.reverse_transform_landing_page(dataset)
+            dataset = rt.reverse_transform_page(dataset)
+            # Must precede `remove_v3_only_fields`, which drops the
+            # `otherIdentifier` this reads from.
+            dataset = rt.reverse_transform_primary_it_investment_uii(dataset)
             dataset = rt.reverse_transform_issued_and_modified(dataset)
 
             distributions = dataset.get("distribution", [])
@@ -178,7 +186,6 @@ def main(filepath, output_dir, dry_run, strict):
     try:
         catalog_to_convert = _load_dcat_catalog(filepath)
         datasets = catalog_to_convert.get("dataset", [])
-        counts["datasets"] = len(datasets)
 
         # Catalog-level v3.0 validation (non-fatal)
         v3_0_catalog_errors = validate_catalog(catalog_to_convert, "v3.0")
@@ -192,10 +199,20 @@ def main(filepath, output_dir, dry_run, strict):
         else:
             click.echo("Input catalog is valid DCAT-US v3.0.")
 
-        # Per-dataset v3.0 validation
-        invalid_v3_0 = validate_datasets(datasets, "v3.0")
+        # Series parents/members flatten back into dataset[] below, so
+        # count them here to match valid_v1_1.
+        series_list = catalog_to_convert.get("datasetSeries", [])
+        series_members = [
+            member for series in series_list for member in series.get("seriesMember", [])
+        ]
+        counts["datasets"] = len(datasets) + len(series_list) + len(series_members)
+
+        # Per-dataset v3.0 validation. Parents are DatasetSeries, already
+        # checked above by validate_catalog(); only members are Datasets.
+        datasets_to_validate = datasets + series_members
+        invalid_v3_0 = validate_datasets(datasets_to_validate, "v3.0")
         counts["invalid_v3_0"] = len(invalid_v3_0)
-        counts["valid_v3_0"] = len(datasets) - len(invalid_v3_0)
+        counts["valid_v3_0"] = len(datasets_to_validate) - len(invalid_v3_0)
         counts["validation_errors_v3_0"] = _count_errors(invalid_v3_0)
         click.echo(
             f"Per-dataset v3.0: {counts['valid_v3_0']} valid, "

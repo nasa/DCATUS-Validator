@@ -809,7 +809,7 @@
       "description": "List of access restrictions related to the dataset",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Accessrestriction.json"
+        "$ref": "./AccessRestriction.json"
       },
       "_oldDocs": {
         "uri": "dcat-us:accessRestriction",
@@ -826,7 +826,7 @@
           "title": "Null allowed when not required"
         },
         {
-          "$ref": "./Cuirestriction.json",
+          "$ref": "./CUIRestriction.json",
           "description": "inline description of CUIRestriction"
         }
       ],
@@ -841,7 +841,7 @@
       "description": "List of use restrictions related to the dataset",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Userestriction.json"
+        "$ref": "./UseRestriction.json"
       },
       "_oldDocs": {
         "uri": "dcat-us:useRestriction",
@@ -977,7 +977,7 @@
       "description": "List of quality measurements for the dataset (for example, completeness, accuracy, or timeliness) beyond spatial or temporal resolution",
       "type": ["null", "array"],
       "items": {
-        "$ref": "./Qualitymeasurement.json"
+        "$ref": "./QualityMeasurement.json"
       },
       "_oldDocs": {
         "uri": "dqv:hasQualityMeasurement",

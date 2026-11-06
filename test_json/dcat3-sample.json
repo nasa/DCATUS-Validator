@@ -33,10 +33,6 @@
         "hasEmail": "mailto:john.doe@example.com"
       },
       "accessLevel": "public",
-      "references": [
-        "https://journals.ametsoc.org/doi/10.1175/",
-        "https://data.nasa.gov/developer"
-      ],
       "distribution": [
         {
           "@type": "dcat:Distribution",
@@ -58,7 +54,19 @@
           "title": "Example Distribution"
         }
       ],
-      "accessRights": "public"
+      "accessRights": "public",
+      "page": [
+        {
+          "@type": "Document",
+          "title": "https://journals.ametsoc.org/doi/10.1175/",
+          "accessURL": "https://journals.ametsoc.org/doi/10.1175/"
+        },
+        {
+          "@type": "Document",
+          "title": "https://data.nasa.gov/developer",
+          "accessURL": "https://data.nasa.gov/developer"
+        }
+      ]
     }
   ]
 }
