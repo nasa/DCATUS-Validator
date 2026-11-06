@@ -1,6 +1,6 @@
 [project]
 name = "dcatus-validator"
-version = "0.1.0"
+version = "0.2.0"
 description = "Validator for DCAT-US json files."
 readme = "README.md"
 requires-python = ">=3.12"
